@@ -156,7 +156,241 @@ app.get("/api/trades",auth,async(req,res)=>{try{
   let r=await db(`SELECT ${fields} FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date DESC,id DESC LIMIT 1000`,v);
   res.json({trades:r.rows});
 }catch(e){console.error(e);res.status(500).json({error:"Could not load trades."})}});
-app.post("/api/trades",auth,async(req,res)=>{try{let b=req.body,s=String(b.symbol||"").trim().toUpperCase(),d=String(b.direction||"").toUpperCase(),acct=String(b.account||"Main Account").trim();if(!s||!["BUY","SELL"].includes(d))return res.status(400).json({error:"Symbol and direction are required."});let ac=await db("SELECT 1 FROM accounts WHERE user_id=$1 AND name=$2",[req.user.id,acct]);if(!ac.rowCount)return res.status(400).json({error:"Selected account does not exist."});let r=await db(`INSERT INTO trades(user_id,account,symbol,direction,entry,stop_loss,take_profit,exit_price,quantity,risk_amount,risk_percent,profit_loss,planned_rr,actual_r,mfe_r,mae_r,max_favorable_price,max_adverse_price,rule_score,playbook_id,strategy,session,setup,entry_reason,exit_reason,emotion_before,emotion_after,mistakes,confidence,market_condition,screenshot_data,notes,trade_date) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33) RETURNING ${fields}`,[req.user.id,acct,s,d,n(b.entry),b.stopLoss===""?null:n(b.stopLoss,null),b.takeProfit===""?null:n(b.takeProfit,null),b.exitPrice===""?null:n(b.exitPrice,null),n(b.quantity,1),n(b.riskAmount),n(b.riskPercent),n(b.profitLoss),n(b.plannedRr),n(b.actualR),n(b.mfeR),n(b.maeR),b.maxFavorablePrice===""?null:n(b.maxFavorablePrice,null),b.maxAdversePrice===""?null:n(b.maxAdversePrice,null),Math.max(0,Math.min(100,Math.round(n(b.ruleScore)))),b.playbookId?Number(b.playbookId):null,b.strategy||"",b.session||"",b.setup||"",b.entryReason||"",b.exitReason||"",b.emotionBefore||"",b.emotionAfter||"",b.mistakes||"",Math.max(0,Math.min(100,Math.round(n(b.confidence)))),b.marketCondition||"",String(b.screenshotData||"").slice(0,4500000),b.notes||"",b.tradeDate?new Date(b.tradeDate):new Date()]);res.status(201).json({trade:r.rows[0]})}catch(e){console.error(e);res.status(500).json({error:"Could not save trade."})}});
+app.post("/api/trades",auth,async(req,res)=>{
+  try{
+    const b=req.body;
+
+    const s=String(b.symbol||"").trim().toUpperCase();
+    const d=String(b.direction||"").toUpperCase();
+    const acct=String(b.account||"Main Account").trim();
+
+    if(!s||!["BUY","SELL"].includes(d)){
+      return res.status(400).json({
+        error:"Symbol and direction are required."
+      });
+    }
+
+    const ac=await db(
+      "SELECT starting_balance FROM accounts WHERE user_id=$1 AND name=$2",
+      [req.user.id,acct]
+    );
+
+    if(!ac.rowCount){
+      return res.status(400).json({
+        error:"Selected account does not exist."
+      });
+    }
+
+    const entry=n(b.entry);
+
+    const stopLoss=
+      b.stopLoss===""||
+      b.stopLoss===null||
+      b.stopLoss===undefined
+        ? null
+        : n(b.stopLoss,null);
+
+    const takeProfit=
+      b.takeProfit===""||
+      b.takeProfit===null||
+      b.takeProfit===undefined
+        ? null
+        : n(b.takeProfit,null);
+
+    const exitPrice=
+      b.exitPrice===""||
+      b.exitPrice===null||
+      b.exitPrice===undefined
+        ? null
+        : n(b.exitPrice,null);
+
+    const quantity=n(b.quantity,1);
+
+    /*
+     * IMPORTANT:
+     * Backend calculation is now authoritative.
+     * Frontend-calculated values are NOT trusted.
+     */
+    const calculated=calculateTrade({
+      symbol:s,
+      direction:d,
+      entry,
+      stopLoss,
+      takeProfit,
+      exitPrice,
+      quantity,
+      accountBalance:n(
+        ac.rows[0].starting_balance,
+        0
+      )
+    });
+
+    let mfeR=n(b.mfeR);
+    let maeR=n(b.maeR);
+
+    const maxFavorable=
+      b.maxFavorablePrice===""||
+      b.maxFavorablePrice===null||
+      b.maxFavorablePrice===undefined
+        ? null
+        : n(b.maxFavorablePrice,null);
+
+    const maxAdverse=
+      b.maxAdversePrice===""||
+      b.maxAdversePrice===null||
+      b.maxAdversePrice===undefined
+        ? null
+        : n(b.maxAdversePrice,null);
+
+    if(
+      calculated.riskAmount>0&&
+      calculated.entrySlDistance>0
+    ){
+
+      if(maxFavorable!==null){
+        const favorableDistance=
+          d==="BUY"
+            ? maxFavorable-entry
+            : entry-maxFavorable;
+
+        mfeR=
+          favorableDistance/
+          calculated.entrySlDistance;
+      }
+
+      if(maxAdverse!==null){
+        const adverseDistance=
+          d==="BUY"
+            ? entry-maxAdverse
+            : maxAdverse-entry;
+
+        maeR=
+          adverseDistance/
+          calculated.entrySlDistance;
+      }
+    }
+
+    const r=await db(`
+      INSERT INTO trades(
+        user_id,
+        account,
+        symbol,
+        direction,
+        entry,
+        stop_loss,
+        take_profit,
+        exit_price,
+        quantity,
+        risk_amount,
+        risk_percent,
+        profit_loss,
+        planned_rr,
+        actual_r,
+        mfe_r,
+        mae_r,
+        max_favorable_price,
+        max_adverse_price,
+        rule_score,
+        playbook_id,
+        strategy,
+        session,
+        setup,
+        entry_reason,
+        exit_reason,
+        emotion_before,
+        emotion_after,
+        mistakes,
+        confidence,
+        market_condition,
+        screenshot_data,
+        notes,
+        trade_date
+      )
+      VALUES(
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+        $12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+        $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,
+        $32,$33
+      )
+      RETURNING ${fields}
+    `,[
+      req.user.id,
+      acct,
+      s,
+      d,
+      entry,
+      stopLoss,
+      takeProfit,
+      exitPrice,
+      quantity,
+
+      calculated.riskAmount,
+      calculated.riskPercent,
+      calculated.profitLoss,
+      calculated.plannedRr,
+      calculated.actualR,
+
+      mfeR,
+      maeR,
+
+      maxFavorable,
+      maxAdverse,
+
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(n(b.ruleScore))
+        )
+      ),
+
+      b.playbookId
+        ? Number(b.playbookId)
+        : null,
+
+      b.strategy||"",
+      b.session||"",
+      b.setup||"",
+      b.entryReason||"",
+      b.exitReason||"",
+      b.emotionBefore||"",
+      b.emotionAfter||"",
+      b.mistakes||"",
+
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(n(b.confidence))
+        )
+      ),
+
+      b.marketCondition||"",
+
+      String(
+        b.screenshotData||""
+      ).slice(0,4500000),
+
+      b.notes||"",
+
+      b.tradeDate
+        ? new Date(b.tradeDate)
+        : new Date()
+    ]);
+
+    res.status(201).json({
+      trade:r.rows[0],
+      calculation:calculated
+    });
+
+  }catch(e){
+    console.error(e);
+
+    res.status(500).json({
+      error:"Could not save trade."
+    });
+  }
+});
 app.put("/api/trades/:id",auth,async(req,res)=>{try{let b=req.body,acct=String(b.account||"Main Account").trim(),sym=String(b.symbol||"").trim().toUpperCase(),dir=String(b.direction||"").toUpperCase();if(!sym||!["BUY","SELL"].includes(dir))return res.status(400).json({error:"Symbol and direction are required."});let ac=await db("SELECT 1 FROM accounts WHERE user_id=$1 AND name=$2",[req.user.id,acct]);if(!ac.rowCount)return res.status(400).json({error:"Selected account does not exist."});let r=await db(`UPDATE trades SET account=$1,symbol=$2,direction=$3,entry=$4,stop_loss=$5,take_profit=$6,exit_price=$7,quantity=$8,risk_amount=$9,risk_percent=$10,profit_loss=$11,planned_rr=$12,actual_r=$13,mfe_r=$14,mae_r=$15,max_favorable_price=$16,max_adverse_price=$17,rule_score=$18,playbook_id=$19,strategy=$20,session=$21,setup=$22,entry_reason=$23,exit_reason=$24,emotion_before=$25,emotion_after=$26,mistakes=$27,confidence=$28,market_condition=$29,screenshot_data=$30,notes=$31,trade_date=$32 WHERE id=$33 AND user_id=$34 RETURNING ${fields}`,[acct,sym,dir,n(b.entry),b.stopLoss===""?null:n(b.stopLoss,null),b.takeProfit===""?null:n(b.takeProfit,null),b.exitPrice===""?null:n(b.exitPrice,null),n(b.quantity,1),n(b.riskAmount),n(b.riskPercent),n(b.profitLoss),n(b.plannedRr),n(b.actualR),n(b.mfeR),n(b.maeR),b.maxFavorablePrice===""?null:n(b.maxFavorablePrice,null),b.maxAdversePrice===""?null:n(b.maxAdversePrice,null),Math.max(0,Math.min(100,Math.round(n(b.ruleScore)))),b.playbookId?Number(b.playbookId):null,b.strategy||"",b.session||"",b.setup||"",b.entryReason||"",b.exitReason||"",b.emotionBefore||"",b.emotionAfter||"",b.mistakes||"",Math.max(0,Math.min(100,Math.round(n(b.confidence)))),b.marketCondition||"",String(b.screenshotData||"").slice(0,4500000),b.notes||"",b.tradeDate?new Date(b.tradeDate):new Date(),Number(req.params.id),req.user.id]);if(!r.rowCount)return res.status(404).json({error:"Trade not found."});res.json({trade:r.rows[0]})}catch(e){console.error(e);res.status(500).json({error:"Could not update trade."})}});
 app.delete("/api/trades/:id",auth,async(req,res)=>{try{let r=await db("DELETE FROM trades WHERE id=$1 AND user_id=$2",[Number(req.params.id),req.user.id]);if(!r.rowCount)return res.status(404).json({error:"Trade not found."});res.json({ok:true})}catch(e){console.error(e);res.status(500).json({error:"Could not delete trade."})}});
 app.get("/api/analytics",auth,async(req,res)=>{try{
