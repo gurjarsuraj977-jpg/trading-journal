@@ -2,86 +2,1546 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GhostTrader V7.0 — Execution & Intelligence</title><link rel="stylesheet" href="/styles.css">
+<title>GhostTrader V8 — Market Intelligence</title>
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div id="auth"><div class="auth-card"><div class="brand-mark">G</div><div class="logo">GHOSTTRADER</div><p>Trade in silence. Execute with precision.</p><form id="af"><input id="an" placeholder="Name" class="reg"><input id="ae" type="email" placeholder="Email" required><input id="ap" type="password" placeholder="Password" required><button>Login</button></form><button id="switch" class="link">Create account</button></div></div>
+
+<div id="auth">
+  <div class="auth-card">
+    <div class="brand-mark">G</div>
+    <div class="logo">GHOSTTRADER</div>
+    <p>Trade in silence. Execute with precision.</p>
+    <form id="af">
+      <input id="an" placeholder="Name" class="reg">
+      <input id="ae" type="email" placeholder="Email" required>
+      <input id="ap" type="password" placeholder="Password" required>
+      <button>Login</button>
+    </form>
+    <button id="switch" class="link">Create account</button>
+  </div>
+</div>
 
 <div id="app" class="hide">
+
 <aside class="sidebar">
-  <div class="side-brand"><div class="brand-mark small">G</div><div><b>GHOSTTRADER</b><small>TRADING JOURNAL</small></div></div>
-  <div class="side-section"><span>WORKSPACE</span>
+
+  <div class="side-brand">
+    <div class="brand-mark small">G</div>
+    <div>
+      <b>GHOSTTRADER</b>
+      <small>TRADING JOURNAL</small>
+    </div>
+  </div>
+
+  <div class="side-section">
+    <span>WORKSPACE</span>
+
     <nav>
-      <button data-p="dashboard" class="active"><i>⌂</i><span>Dashboard</span></button>
-      <button data-p="trades"><i>✎</i><span>Journal</span></button>
-      <button data-p="calendar"><i>▦</i><span>Calendar</span></button>
-      <button data-p="analytics"><i>◈</i><span>Analytics</span></button>
-      <button data-p="insights"><i>✦</i><span>Ghost Insights</span></button>
-      <button data-p="reports"><i>▤</i><span>Reports</span></button>
-      <button data-p="playbooks"><i>☑</i><span>Playbooks</span></button>
-      <button data-p="execution"><i>◒</i><span>Execution Lab</span></button>
-      <button data-p="simulation"><i>⌁</i><span>Simulation Lab</span></button>
-      <button data-p="replay"><i>▶</i><span>Trade Replay</span></button>
-      <button data-p="market"><i>▥</i><span>Market Chart</span></button>
-      <button data-p="coach"><i>✦</i><span>Ghost AI</span></button>
-      <button data-p="missed"><i>⊘</i><span>Missed Trades</span></button>
-      <button data-p="accounts"><i>▣</i><span>Accounts</span></button>
+      <button data-p="dashboard" class="active">
+        <i>⌂</i><span>Dashboard</span>
+      </button>
+
+      <button data-p="trades">
+        <i>✎</i><span>Journal</span>
+      </button>
+
+      <button data-p="calendar">
+        <i>▦</i><span>Calendar</span>
+      </button>
+
+      <button data-p="analytics">
+        <i>◈</i><span>Analytics</span>
+      </button>
+
+      <button data-p="insights">
+        <i>✦</i><span>Ghost Insights</span>
+      </button>
+
+      <button data-p="reports">
+        <i>▤</i><span>Reports</span>
+      </button>
+
+      <button data-p="playbooks">
+        <i>☑</i><span>Playbooks</span>
+      </button>
+
+      <button data-p="execution">
+        <i>◒</i><span>Execution Lab</span>
+      </button>
+
+      <button data-p="simulation">
+        <i>⌁</i><span>Simulation Lab</span>
+      </button>
+
+      <button data-p="replay">
+        <i>▶</i><span>Trade Replay</span>
+      </button>
+
+      <!-- V8 MARKET CHART -->
+      <button data-p="market">
+        <i>▥</i><span>Market Chart</span>
+      </button>
+
+      <button data-p="coach">
+        <i>✦</i><span>Ghost AI</span>
+      </button>
+
+      <button data-p="missed">
+        <i>⊘</i><span>Missed Trades</span>
+      </button>
+
+      <button data-p="accounts">
+        <i>▣</i><span>Accounts</span>
+      </button>
     </nav>
   </div>
-  <div class="side-section"><span>TOOLS</span><nav><button id="quickExport"><i>⇩</i><span>Export CSV</span></button><button id="importCsv"><i>⇧</i><span>Import CSV</span></button><input id="csvFile" type="file" accept=".csv,text/csv" hidden></nav></div>
-  <div class="side-bottom"><div class="profile"><div class="avatar" id="avatar">G</div><div><b id="sideName">Trader</b><small id="sideEmail">GhostTrader</small></div></div><button id="logout" class="logout">↪ <span>Log out</span></button></div>
+
+  <div class="side-section">
+    <span>TOOLS</span>
+
+    <nav>
+      <button id="quickExport">
+        <i>⇩</i><span>Export CSV</span>
+      </button>
+
+      <button id="importCsv">
+        <i>⇧</i><span>Import CSV</span>
+      </button>
+
+      <input id="csvFile" type="file" accept=".csv,text/csv" hidden>
+    </nav>
+  </div>
+
+  <div class="side-bottom">
+
+    <div class="profile">
+      <div class="avatar" id="avatar">G</div>
+
+      <div>
+        <b id="sideName">Trader</b>
+        <small id="sideEmail">GhostTrader</small>
+      </div>
+    </div>
+
+    <button id="logout" class="logout">
+      ↪ <span>Log out</span>
+    </button>
+
+  </div>
+
 </aside>
 
 <main>
+
 <header class="topbar">
-  <div class="mobile-brand"><div class="brand-mark small">G</div><b>GHOSTTRADER</b></div>
-  <div class="crumb"><small>WORKSPACE</small><strong id="title">Dashboard</strong></div>
-  <div class="top-actions">
-    <label class="account-select"><span>ACCOUNT</span><select id="dashAccount"><option value="">All accounts</option></select></label>
-    <label class="range-select"><span>PERIOD</span><select id="range"><option value="all">All time</option><option value="month">This month</option><option value="3m">Last 3 months</option><option value="6m">Last 6 months</option><option value="year" selected>Last 12 months</option></select></label>
-    <button id="openInsights" class="secondary">✦ Insights</button><button id="add" class="primary">＋ Add trade</button>
+
+  <div class="mobile-brand">
+    <div class="brand-mark small">G</div>
+    <b>GHOSTTRADER</b>
   </div>
+
+  <div class="crumb">
+    <small>WORKSPACE</small>
+    <strong id="title">Dashboard</strong>
+  </div>
+
+  <div class="top-actions">
+
+    <label class="account-select">
+      <span>ACCOUNT</span>
+      <select id="dashAccount">
+        <option value="">All accounts</option>
+      </select>
+    </label>
+
+    <label class="range-select">
+      <span>PERIOD</span>
+      <select id="range">
+        <option value="all">All time</option>
+        <option value="month">This month</option>
+        <option value="3m">Last 3 months</option>
+        <option value="6m">Last 6 months</option>
+        <option value="year" selected>Last 12 months</option>
+      </select>
+    </label>
+
+    <button id="openInsights" class="secondary">
+      ✦ Insights
+    </button>
+
+    <button id="add" class="primary">
+      ＋ Add trade
+    </button>
+
+  </div>
+
 </header>
 
+
+<!-- ============================================================
+     DASHBOARD
+     ============================================================ -->
+
 <section id="dashboard" class="page">
-  <div class="welcome"><div><span class="eyebrow">LIVE JOURNAL</span><h1>Performance overview</h1><p id="periodText">Your trading performance at a glance.</p></div><div class="status"><span></span> Tracking</div></div>
+
+  <div class="welcome">
+    <div>
+      <span class="eyebrow">LIVE JOURNAL</span>
+      <h1>Performance overview</h1>
+      <p id="periodText">Your trading performance at a glance.</p>
+    </div>
+
+    <div class="status">
+      <span></span> Tracking
+    </div>
+  </div>
+
   <div id="stats" class="stats-grid"></div>
+
   <div class="dashboard-grid">
-    <div class="panel equity-panel"><div class="panel-head"><div><h2>Equity curve</h2><p>Cumulative P&amp;L over time</p></div><div class="legend"><span></span> Equity</div></div><canvas id="chart"></canvas></div>
-    <div class="panel risk-panel"><div class="panel-head"><div><h2>Risk &amp; statistics</h2><p>Core performance metrics</p></div></div><div id="perf" class="metric-list"></div></div>
+
+    <div class="panel equity-panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Equity curve</h2>
+          <p>Cumulative P&amp;L over time</p>
+        </div>
+
+        <div class="legend">
+          <span></span> Equity
+        </div>
+      </div>
+
+      <canvas id="chart"></canvas>
+
+    </div>
+
+    <div class="panel risk-panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Risk &amp; statistics</h2>
+          <p>Core performance metrics</p>
+        </div>
+      </div>
+
+      <div id="perf" class="metric-list"></div>
+
+    </div>
+
   </div>
+
   <div class="dashboard-grid lower">
-    <div class="panel symbols-panel"><div class="panel-head"><div><h2>Symbols traded</h2><p>Distribution by number of trades</p></div></div><div class="donut-wrap"><canvas id="donut"></canvas><div id="donutCenter"></div></div><div id="symbolLegend" class="symbol-legend"></div></div>
-    <div class="panel pnl-panel"><div class="panel-head"><div><h2>P&amp;L</h2><p>Daily profit and loss</p></div><b id="pnlTotal" class="big-number">$0.00</b></div><canvas id="pnlChart"></canvas></div>
+
+    <div class="panel symbols-panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Symbols traded</h2>
+          <p>Distribution by number of trades</p>
+        </div>
+      </div>
+
+      <div class="donut-wrap">
+        <canvas id="donut"></canvas>
+        <div id="donutCenter"></div>
+      </div>
+
+      <div id="symbolLegend" class="symbol-legend"></div>
+
+    </div>
+
+    <div class="panel pnl-panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>P&amp;L</h2>
+          <p>Daily profit and loss</p>
+        </div>
+
+        <b id="pnlTotal" class="big-number">$0.00</b>
+      </div>
+
+      <canvas id="pnlChart"></canvas>
+
+    </div>
+
   </div>
-  <div class="panel recent-panel"><div class="panel-head"><div><h2>Recent trades</h2><p>Latest journal activity</p></div><button class="ghost" onclick="page('trades')">View journal →</button></div><div id="recent"></div></div>
+
+  <div class="panel recent-panel">
+
+    <div class="panel-head">
+      <div>
+        <h2>Recent trades</h2>
+        <p>Latest journal activity</p>
+      </div>
+
+      <button class="ghost" onclick="page('trades')">
+        View journal →
+      </button>
+    </div>
+
+    <div id="recent"></div>
+
+  </div>
+
 </section>
 
-<section id="trades" class="page hide"><div class="section-head"><div><span class="eyebrow">JOURNAL</span><h1>Trade journal</h1></div><button class="primary" onclick="openModal()">＋ Add trade</button></div><div class="panel filters"><input id="fs" placeholder="Search symbol"><select id="fd"><option value="">All directions</option><option>BUY</option><option>SELL</option></select><select id="fr"><option value="">All results</option><option value="win">Wins</option><option value="loss">Losses</option></select><select id="tradeAccount"><option value="">All accounts</option></select><button id="cf" class="secondary">Clear</button></div><div class="panel"><div id="tradeTable"></div></div></section>
 
-<section id="calendar" class="page hide"><div class="section-head"><div><span class="eyebrow">JOURNAL</span><h1>Trading calendar</h1></div><button class="secondary" onclick="page('trades')">View all trades →</button></div><div class="panel"><div class="calhead"><button id="prev" class="icon-btn">‹</button><div><h2 id="mt"></h2><small>Click a day to view its trades</small></div><button id="next" class="icon-btn">›</button></div><div class="week"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div><div id="gridcal" class="cal"></div></div></section>
+<!-- ============================================================
+     JOURNAL
+     ============================================================ -->
 
-<section id="analytics" class="page hide"><div class="section-head"><div><span class="eyebrow">ANALYTICS</span><h1>Deep performance</h1></div></div><div id="astats" class="stats-grid six"></div><div class="analytics-grid"><div class="panel"><div class="panel-head"><div><h2>By symbol</h2><p>Profit contribution</p></div></div><div id="sym"></div></div><div class="panel"><div class="panel-head"><div><h2>By strategy</h2><p>Performance by setup</p></div></div><div id="strat"></div></div><div class="panel"><div class="panel-head"><div><h2>By session</h2><p>Performance by market session</p></div></div><div id="sess"></div></div><div class="panel"><div class="panel-head"><div><h2>By direction</h2><p>Long vs short</p></div></div><div id="dir"></div></div></div></section>
+<section id="trades" class="page hide">
 
-<section id="insights" class="page hide"><div class="section-head"><div><span class="eyebrow">PREMIUM INTELLIGENCE</span><h1>Ghost Insights</h1><p class="section-sub">Find your strongest edges, performance leaks, psychology patterns and process risks.</p></div><button id="refreshInsights" class="secondary">↻ Refresh scan</button></div><div id="coachCards" class="insight-grid"></div><div class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h2>Strongest edges</h2><p>Groups with at least 3 trades, ranked by P&amp;L.</p></div></div><div id="edgeList"></div></div><div class="panel"><div class="panel-head"><div><h2>Biggest leaks</h2><p>Where your journal is giving back performance.</p></div></div><div id="leakList"></div></div></div><div class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h2>Psychology impact</h2><p>Confidence and pre-trade emotion versus results.</p></div></div><div id="psychList"></div></div><div class="panel"><div class="panel-head"><div><h2>Process review</h2><p>Flags generated from your recorded trade data.</p></div></div><div id="processList"></div></div></div></section>
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">JOURNAL</span>
+      <h1>Trade journal</h1>
+    </div>
 
-<section id="reports" class="page hide"><div class="section-head"><div><span class="eyebrow">PREMIUM REPORTS</span><h1>Trader report center</h1><p class="section-sub">Weekly review, risk profile and performance diagnostics.</p></div></div><div id="weeklyCards" class="stats-grid six"></div><div class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h2>Risk center</h2><p>How aggressively you are trading relative to your own history.</p></div></div><div id="riskCenter" class="metric-list"></div></div><div class="panel"><div class="panel-head"><div><h2>Weekly review</h2><p>Current week compared with the previous week.</p></div></div><div id="weeklyReview"></div></div></div><div class="panel"><div class="panel-head"><div><h2>Premium roadmap</h2><p>Features ready to connect next: playbooks, MFE/MAE, replay, broker sync and AI coaching.</p></div></div><div class="roadmap"><div><b>01 · Intelligence</b><span>Ghost Edge Finder, psychology and process analysis</span></div><div><b>02 · Execution</b><span>Playbooks, MFE/MAE and trade-management optimizer</span></div><div><b>03 · Simulation</b><span>Replay and strategy backtesting</span></div><div><b>04 · Automation</b><span>Broker/prop-firm sync and true AI coach</span></div></div></div></section>
+    <button class="primary" onclick="openModal()">
+      ＋ Add trade
+    </button>
+  </div>
+
+  <div class="panel filters">
+
+    <input id="fs" placeholder="Search symbol">
+
+    <select id="fd">
+      <option value="">All directions</option>
+      <option>BUY</option>
+      <option>SELL</option>
+    </select>
+
+    <select id="fr">
+      <option value="">All results</option>
+      <option value="win">Wins</option>
+      <option value="loss">Losses</option>
+    </select>
+
+    <select id="tradeAccount">
+      <option value="">All accounts</option>
+    </select>
+
+    <button id="cf" class="secondary">
+      Clear
+    </button>
+
+  </div>
+
+  <div class="panel">
+    <div id="tradeTable"></div>
+  </div>
+
+</section>
 
 
-<section id="playbooks" class="page hide"><div class="section-head"><div><span class="eyebrow">V5 · EXECUTION</span><h1>Playbook Builder</h1><p class="section-sub">Turn your best setups into repeatable rules and measure discipline.</p></div><button class="primary" id="newPlaybook">＋ New playbook</button></div><div class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h2>Your playbooks</h2><p>Rules are stored with your account and survive upgrades.</p></div></div><div id="playbookList"></div></div><div class="panel"><div class="panel-head"><div><h2>Rule discipline</h2><p>Use rule score on each trade to measure process quality.</p></div></div><div id="playbookDetail"><p class="muted">Select a playbook to inspect its checklist.</p></div></div></div></section>
+<!-- ============================================================
+     CALENDAR
+     ============================================================ -->
 
-<section id="execution" class="page hide"><div class="section-head"><div><span class="eyebrow">V5 · TRADE MANAGEMENT</span><h1>Execution Lab</h1><p class="section-sub">MFE, MAE, exit efficiency and rule adherence.</p></div><button class="secondary" id="refreshExecution">↻ Refresh</button></div><div id="executionStats" class="stats-grid six"></div><div class="panel"><div class="panel-head"><div><h2>Execution by symbol</h2><p>Find where you leave money on the table or manage risk best.</p></div></div><div id="executionTable"></div></div></section>
+<section id="calendar" class="page hide">
 
-<section id="simulation" class="page hide"><div class="section-head"><div><span class="eyebrow">V6 · SIMULATION LAB</span><h1>Strategy Simulator</h1><p class="section-sub">Replay your recorded trades with alternative R targets/stops. Trades need MFE/MAE data.</p></div></div><div class="dashboard-grid"><div class="panel"><div class="form-grid"><label>Scenario name<input id="simName" value="2R target test"></label><label>Symbol<select id="simSymbol"><option value="">All symbols</option></select></label><label>Target R<input id="simTarget" type="number" step="0.25" value="2"></label><label>Stop R<input id="simStop" type="number" step="0.25" value="1"></label></div><button class="primary" id="runSim">Run simulation</button><div id="simResult" class="sim-result"></div></div><div class="panel"><div class="panel-head"><div><h2>How this works</h2><p>Uses your recorded MFE/MAE to model whether a target or stop would have been reached first. It does not invent market candles.</p></div></div><div class="roadmap"><div><b>1 · Record</b><span>Add MFE/MAE to trades.</span></div><div><b>2 · Simulate</b><span>Change target/stop assumptions.</span></div><div><b>3 · Compare</b><span>Review simulated R versus actual R.</span></div></div></div></div></section>
+  <div class="section-head">
 
-<section id="replay" class="page hide"><div class="section-head"><div><span class="eyebrow">V6 · EXECUTION REPLAY</span><h1>Trade Replay</h1><p class="section-sub">Review an actual trade from entry to exit without changing the historical record.</p></div></div><div class="dashboard-grid"><div class="panel"><div class="form-grid"><label>Trade<select id="replayTrade"></select></label></div><div class="replay-stage"><div class="replay-price" id="replayPrice">—</div><div class="replay-track"><i id="replayProgress"></i></div><input id="replaySlider" type="range" min="0" max="100" value="0"><div class="replay-meta"><span id="replayTime">Start</span><span id="replayPnl">$0.00</span></div><div class="replay-actions"><button class="secondary" id="replayPlay">▶ Play</button><button class="secondary" id="replayReset">↺ Reset</button></div></div></div><div class="panel" id="replayInfo"><h2>Execution record</h2><p class="muted">Choose a trade.</p></div></div></section>
+    <div>
+      <span class="eyebrow">JOURNAL</span>
+      <h1>Trading calendar</h1>
+    </div>
 
-<section id="coach" class="page hide"><div class="section-head"><div><span class="eyebrow">V7 · AI TRADING PARTNER</span><h1>Ghost AI Coach</h1><p class="section-sub">Ask questions about your own journal. The built-in coach works locally; an OpenAI API key can be connected later for conversational AI.</p></div></div><div class="dashboard-grid"><div class="panel coach-chat"><div id="coachChat"><div class="chat ghost"><b>Ghost</b><p>Ask me what is hurting your performance, where your edge is, or what you should review next.</p></div></div><div class="coach-input"><input id="coachQuestion" placeholder="e.g. Why am I losing money lately?"><button class="primary" id="askCoach">Ask Ghost</button></div></div><div class="panel"><div class="panel-head"><div><h2>Suggested questions</h2><p>Use your journal data, not generic trading advice.</p></div></div><div class="chips"><button class="chip" data-q="What is my strongest edge?">Strongest edge</button><button class="chip" data-q="What is my biggest performance leak?">Biggest leak</button><button class="chip" data-q="Am I taking too much risk?">Risk review</button><button class="chip" data-q="Are my exits too early?">Exit quality</button><button class="chip" data-q="What should I improve this week?">Weekly focus</button></div></div></div></section>
+    <button class="secondary" onclick="page('trades')">
+      View all trades →
+    </button>
 
-<section id="missed" class="page hide"><div class="section-head"><div><span class="eyebrow">V5 · OPPORTUNITY</span><h1>Missed Trades</h1><p class="section-sub">Track setups you saw but did not execute, then learn whether hesitation is costing you.</p></div><button class="primary" id="newMissed">＋ Log missed trade</button></div><div class="panel"><div id="missedList"></div></div></section>
+  </div>
 
-<section id="accounts" class="page hide"><div class="section-head"><div><span class="eyebrow">CAPITAL</span><h1>Trading accounts</h1></div><button id="newacc" class="primary">＋ Add account</button></div><div class="panel"><div id="accountsList" class="account-grid"></div></div></section>
-</main></div>
+  <div class="panel">
 
-<div id="modal" class="modal hide"><div class="modal-card"><button id="close" class="x">×</button><div class="modal-title"><span class="eyebrow">JOURNAL ENTRY</span><h2 id="mh">Add trade</h2></div><form id="tf" class="form"><input id="tid" type="hidden"><label>Account<select id="ta"></select></label><label>Symbol<input id="ts" required placeholder="XAUUSD"></label><label>Direction<select id="td"><option>BUY</option><option>SELL</option></select></label><label>Date<input id="tt" type="datetime-local" required></label><label>Entry<input id="te" type="number" step="any" required></label><label>Stop loss<input id="sl" type="number" step="any"></label><label>Take profit<input id="tp" type="number" step="any"></label><label>Exit<input id="ex" type="number" step="any"></label><label>Quantity / lots<input id="qty" type="number" step="any" value="1"></label><label>Risk $<input id="risk" type="number" step="any" value="0"></label><label>Risk %<input id="riskp" type="number" step="any" value="0"></label><label>P&amp;L<input id="pl" type="number" step="any" value="0"></label><label>Planned R:R<input id="prr" type="number" step="any"></label><label>Actual R<input id="ar" type="number" step="any"></label><label>MFE (R)<input id="mfe" type="number" step="any" placeholder="e.g. 2.4"></label><label>MAE (R)<input id="mae" type="number" step="any" placeholder="e.g. -0.8"></label><label>Max favorable price<input id="mfp" type="number" step="any"></label><label>Max adverse price<input id="map" type="number" step="any"></label><label>Rule score %<input id="rulescore" type="number" min="0" max="100" step="1" value="0"></label><label>Playbook<select id="playbook"><option value="">No playbook</option></select></label><label>Strategy<input id="strategy"></label><label>Setup<input id="setup"></label><label>Session<select id="session"><option></option><option>Asia</option><option>London</option><option>New York</option><option>London/NY</option></select></label><label>Market condition<select id="mc"><option></option><option>Trending</option><option>Ranging</option><option>Volatile</option><option>Choppy</option><option>News</option></select></label><label>Confidence<input id="conf" type="number" min="0" max="100"></label><label>Emotion before<input id="eb"></label><label>Emotion after<input id="ea"></label><label class="full">Mistakes<input id="mist"></label><label class="full">Entry reason<textarea id="er"></textarea></label><label class="full">Exit reason<textarea id="xr"></textarea></label><label class="full">Notes<textarea id="notes"></textarea></label><label class="full">Chart screenshot<input id="shot" type="file" accept="image/*"></label></form><div class="modal-actions"><button id="cancel" class="secondary">Cancel</button><button id="save" class="primary">Save trade</button></div></div></div>
-<script src="/app.js"></script></body></html>
+    <div class="calhead">
+
+      <button id="prev" class="icon-btn">‹</button>
+
+      <div>
+        <h2 id="mt"></h2>
+        <small>Click a day to view its trades</small>
+      </div>
+
+      <button id="next" class="icon-btn">›</button>
+
+    </div>
+
+    <div class="week">
+      <span>MON</span>
+      <span>TUE</span>
+      <span>WED</span>
+      <span>THU</span>
+      <span>FRI</span>
+      <span>SAT</span>
+      <span>SUN</span>
+    </div>
+
+    <div id="gridcal" class="cal"></div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     ANALYTICS
+     ============================================================ -->
+
+<section id="analytics" class="page hide">
+
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">ANALYTICS</span>
+      <h1>Deep performance</h1>
+    </div>
+  </div>
+
+  <div id="astats" class="stats-grid six"></div>
+
+  <div class="analytics-grid">
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>By symbol</h2>
+          <p>Profit contribution</p>
+        </div>
+      </div>
+      <div id="sym"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>By strategy</h2>
+          <p>Performance by setup</p>
+        </div>
+      </div>
+      <div id="strat"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>By session</h2>
+          <p>Performance by market session</p>
+        </div>
+      </div>
+      <div id="sess"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>By direction</h2>
+          <p>Long vs short</p>
+        </div>
+      </div>
+      <div id="dir"></div>
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     INSIGHTS
+     ============================================================ -->
+
+<section id="insights" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">PREMIUM INTELLIGENCE</span>
+      <h1>Ghost Insights</h1>
+      <p class="section-sub">
+        Find your strongest edges, performance leaks,
+        psychology patterns and process risks.
+      </p>
+    </div>
+
+    <button id="refreshInsights" class="secondary">
+      ↻ Refresh scan
+    </button>
+
+  </div>
+
+  <div id="coachCards" class="insight-grid"></div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Strongest edges</h2>
+          <p>Groups with at least 3 trades, ranked by P&amp;L.</p>
+        </div>
+      </div>
+      <div id="edgeList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Biggest leaks</h2>
+          <p>Where your journal is giving back performance.</p>
+        </div>
+      </div>
+      <div id="leakList"></div>
+    </div>
+
+  </div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Psychology impact</h2>
+          <p>Confidence and pre-trade emotion versus results.</p>
+        </div>
+      </div>
+      <div id="psychList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Process review</h2>
+          <p>Flags generated from your recorded trade data.</p>
+        </div>
+      </div>
+      <div id="processList"></div>
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     REPORTS
+     ============================================================ -->
+
+<section id="reports" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">PREMIUM REPORTS</span>
+      <h1>Trader report center</h1>
+      <p class="section-sub">
+        Weekly review, risk profile and performance diagnostics.
+      </p>
+    </div>
+
+  </div>
+
+  <div id="weeklyCards" class="stats-grid six"></div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Risk center</h2>
+          <p>
+            How aggressively you are trading relative to your own history.
+          </p>
+        </div>
+      </div>
+
+      <div id="riskCenter" class="metric-list"></div>
+
+    </div>
+
+    <div class="panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Weekly review</h2>
+          <p>
+            Current week compared with the previous week.
+          </p>
+        </div>
+      </div>
+
+      <div id="weeklyReview"></div>
+
+    </div>
+
+  </div>
+
+  <div class="panel">
+
+    <div class="panel-head">
+      <div>
+        <h2>Premium roadmap</h2>
+        <p>
+          Features ready to connect next: playbooks, MFE/MAE,
+          replay, broker sync and AI coaching.
+        </p>
+      </div>
+    </div>
+
+    <div class="roadmap">
+
+      <div>
+        <b>01 · Intelligence</b>
+        <span>Ghost Edge Finder, psychology and process analysis</span>
+      </div>
+
+      <div>
+        <b>02 · Execution</b>
+        <span>Playbooks, MFE/MAE and trade-management optimizer</span>
+      </div>
+
+      <div>
+        <b>03 · Simulation</b>
+        <span>Replay and strategy backtesting</span>
+      </div>
+
+      <div>
+        <b>04 · Automation</b>
+        <span>Broker/prop-firm sync and AI coaching</span>
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     PLAYBOOKS
+     ============================================================ -->
+
+<section id="playbooks" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V5 · EXECUTION</span>
+      <h1>Playbook Builder</h1>
+      <p class="section-sub">
+        Turn your best setups into repeatable rules and measure discipline.
+      </p>
+    </div>
+
+    <button class="primary" id="newPlaybook">
+      ＋ New playbook
+    </button>
+
+  </div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Your playbooks</h2>
+          <p>
+            Rules are stored with your account and survive upgrades.
+          </p>
+        </div>
+      </div>
+
+      <div id="playbookList"></div>
+
+    </div>
+
+    <div class="panel">
+
+      <div class="panel-head">
+        <div>
+          <h2>Rule discipline</h2>
+          <p>
+            Use rule score on each trade to measure process quality.
+          </p>
+        </div>
+      </div>
+
+      <div id="playbookDetail">
+        <p class="muted">
+          Select a playbook to inspect its checklist.
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     EXECUTION LAB
+     ============================================================ -->
+
+<section id="execution" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V5 · TRADE MANAGEMENT</span>
+      <h1>Execution Lab</h1>
+      <p class="section-sub">
+        MFE, MAE, exit efficiency and rule adherence.
+      </p>
+    </div>
+
+    <button class="secondary" id="refreshExecution">
+      ↻ Refresh
+    </button>
+
+  </div>
+
+  <div id="executionStats" class="stats-grid six"></div>
+
+  <div class="panel">
+
+    <div class="panel-head">
+
+      <div>
+        <h2>Execution by symbol</h2>
+        <p>
+          Find where you leave money on the table or manage risk best.
+        </p>
+      </div>
+
+    </div>
+
+    <div id="executionTable"></div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     SIMULATION LAB
+     ============================================================ -->
+
+<section id="simulation" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V6 · SIMULATION LAB</span>
+      <h1>Strategy Simulator</h1>
+      <p class="section-sub">
+        Replay your recorded trades with alternative R targets/stops.
+        Trades need MFE/MAE data.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel">
+
+      <div class="form-grid">
+
+        <label>
+          Scenario name
+          <input id="simName" value="2R target test">
+        </label>
+
+        <label>
+          Symbol
+          <select id="simSymbol">
+            <option value="">All symbols</option>
+          </select>
+        </label>
+
+        <label>
+          Target R
+          <input id="simTarget" type="number" step="0.25" value="2">
+        </label>
+
+        <label>
+          Stop R
+          <input id="simStop" type="number" step="0.25" value="1">
+        </label>
+
+      </div>
+
+      <button class="primary" id="runSim">
+        Run simulation
+      </button>
+
+      <div id="simResult" class="sim-result"></div>
+
+    </div>
+
+    <div class="panel">
+
+      <div class="panel-head">
+
+        <div>
+          <h2>How this works</h2>
+          <p>
+            Uses your recorded MFE/MAE to model whether a target or
+            stop would have been reached first. It does not invent
+            market candles.
+          </p>
+        </div>
+
+      </div>
+
+      <div class="roadmap">
+
+        <div>
+          <b>1 · Record</b>
+          <span>Add MFE/MAE to trades.</span>
+        </div>
+
+        <div>
+          <b>2 · Simulate</b>
+          <span>Change target/stop assumptions.</span>
+        </div>
+
+        <div>
+          <b>3 · Compare</b>
+          <span>Review simulated R versus actual R.</span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     TRADE REPLAY
+     ============================================================ -->
+
+<section id="replay" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V6 · EXECUTION REPLAY</span>
+      <h1>Trade Replay</h1>
+      <p class="section-sub">
+        Review an actual trade from entry to exit without changing
+        the historical record.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel">
+
+      <div class="form-grid">
+
+        <label>
+          Trade
+          <select id="replayTrade"></select>
+        </label>
+
+      </div>
+
+      <div class="replay-stage">
+
+        <div class="replay-price" id="replayPrice">—</div>
+
+        <div class="replay-track">
+          <i id="replayProgress"></i>
+        </div>
+
+        <input
+          id="replaySlider"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+        >
+
+        <div class="replay-meta">
+          <span id="replayTime">Start</span>
+          <span id="replayPnl">$0.00</span>
+        </div>
+
+        <div class="replay-actions">
+          <button class="secondary" id="replayPlay">
+            ▶ Play
+          </button>
+
+          <button class="secondary" id="replayReset">
+            ↺ Reset
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="panel" id="replayInfo">
+
+      <h2>Execution record</h2>
+
+      <p class="muted">
+        Choose a trade.
+      </p>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     V8 MARKET CHART
+     ============================================================ -->
+
+<section id="market" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V8 · MARKET DATA</span>
+
+      <h1>Market Chart</h1>
+
+      <p class="section-sub">
+        Real market candles from your GhostTrader market database.
+      </p>
+    </div>
+
+  </div>
+
+
+  <!-- MARKET CONTROLS -->
+
+  <div class="panel">
+
+    <div class="form-grid">
+
+      <label>
+        Symbol
+
+        <select id="marketSymbol">
+
+          <option value="XAUUSD">
+            XAUUSD
+          </option>
+
+          <option value="EURUSD">
+            EURUSD
+          </option>
+
+          <option value="GBPUSD">
+            GBPUSD
+          </option>
+
+          <option value="USDJPY">
+            USDJPY
+          </option>
+
+          <option value="AUDUSD">
+            AUDUSD
+          </option>
+
+          <option value="USDCAD">
+            USDCAD
+          </option>
+
+          <option value="USDCHF">
+            USDCHF
+          </option>
+
+          <option value="BTCUSD">
+            BTCUSD
+          </option>
+
+          <option value="ETHUSD">
+            ETHUSD
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <label>
+        Timeframe
+
+        <select id="marketTimeframe">
+
+          <option value="1m">
+            1 Minute
+          </option>
+
+          <option value="5m">
+            5 Minutes
+          </option>
+
+          <option value="15m">
+            15 Minutes
+          </option>
+
+          <option value="30m">
+            30 Minutes
+          </option>
+
+          <option value="1h" selected>
+            1 Hour
+          </option>
+
+          <option value="4h">
+            4 Hours
+          </option>
+
+          <option value="1d">
+            1 Day
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <label>
+        Candles
+
+        <select id="marketLimit">
+
+          <option value="100">
+            100
+          </option>
+
+          <option value="200" selected>
+            200
+          </option>
+
+          <option value="500">
+            500
+          </option>
+
+          <option value="1000">
+            1000
+          </option>
+
+        </select>
+
+      </label>
+
+
+      <div>
+
+        <button
+          id="loadMarketChart"
+          class="primary"
+          type="button"
+        >
+          Load Chart
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- MARKET CHART -->
+
+  <div class="panel">
+
+    <div class="panel-head">
+
+      <div>
+
+        <h2 id="marketChartTitle">
+          XAUUSD · 1H
+        </h2>
+
+        <p id="marketChartStatus">
+          Ready to load market data.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div
+      id="marketChart"
+      style="width:100%;height:520px;"
+    ></div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     GHOST AI
+     ============================================================ -->
+
+<section id="coach" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V7 · AI TRADING PARTNER</span>
+
+      <h1>Ghost AI Coach</h1>
+
+      <p class="section-sub">
+        Ask questions about your own journal. The built-in coach
+        works locally; an OpenAI API key can be connected later
+        for conversational AI.
+      </p>
+
+    </div>
+
+  </div>
+
+  <div class="dashboard-grid">
+
+    <div class="panel coach-chat">
+
+      <div id="coachChat">
+
+        <div class="chat ghost">
+          <b>Ghost</b>
+
+          <p>
+            Ask me what is hurting your performance, where your
+            edge is, or what you should review next.
+          </p>
+
+        </div>
+
+      </div>
+
+      <div class="coach-input">
+
+        <input
+          id="coachQuestion"
+          placeholder="e.g. Why am I losing money lately?"
+        >
+
+        <button class="primary" id="askCoach">
+          Ask Ghost
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="panel">
+
+      <div class="panel-head">
+
+        <div>
+          <h2>Suggested questions</h2>
+
+          <p>
+            Use your journal data, not generic trading advice.
+          </p>
+        </div>
+
+      </div>
+
+      <div class="chips">
+
+        <button
+          class="chip"
+          data-q="What is my strongest edge?"
+        >
+          Strongest edge
+        </button>
+
+        <button
+          class="chip"
+          data-q="What is my biggest performance leak?"
+        >
+          Biggest leak
+        </button>
+
+        <button
+          class="chip"
+          data-q="Am I taking too much risk?"
+        >
+          Risk review
+        </button>
+
+        <button
+          class="chip"
+          data-q="Are my exits too early?"
+        >
+          Exit quality
+        </button>
+
+        <button
+          class="chip"
+          data-q="What should I improve this week?"
+        >
+          Weekly focus
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     MISSED TRADES
+     ============================================================ -->
+
+<section id="missed" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">V5 · OPPORTUNITY</span>
+
+      <h1>Missed Trades</h1>
+
+      <p class="section-sub">
+        Track setups you saw but did not execute, then learn
+        whether hesitation is costing you.
+      </p>
+
+    </div>
+
+    <button class="primary" id="newMissed">
+      ＋ Log missed trade
+    </button>
+
+  </div>
+
+  <div class="panel">
+
+    <div id="missedList"></div>
+
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     ACCOUNTS
+     ============================================================ -->
+
+<section id="accounts" class="page hide">
+
+  <div class="section-head">
+
+    <div>
+      <span class="eyebrow">CAPITAL</span>
+
+      <h1>Trading accounts</h1>
+
+    </div>
+
+    <button id="newacc" class="primary">
+      ＋ Add account
+    </button>
+
+  </div>
+
+  <div class="panel">
+
+    <div
+      id="accountsList"
+      class="account-grid"
+    ></div>
+
+  </div>
+
+</section>
+
+</main>
+</div>
+
+
+<!-- ============================================================
+     TRADE MODAL
+     ============================================================ -->
+
+<div id="modal" class="modal hide">
+
+  <div class="modal-card">
+
+    <button id="close" class="x">
+      ×
+    </button>
+
+    <div class="modal-title">
+
+      <span class="eyebrow">
+        JOURNAL ENTRY
+      </span>
+
+      <h2 id="mh">
+        Add trade
+      </h2>
+
+    </div>
+
+
+    <form id="tf" class="form">
+
+      <input id="tid" type="hidden">
+
+      <label>
+        Account
+        <select id="ta"></select>
+      </label>
+
+      <label>
+        Symbol
+        <input id="ts" required placeholder="XAUUSD">
+      </label>
+
+      <label>
+        Direction
+        <select id="td">
+          <option>BUY</option>
+          <option>SELL</option>
+        </select>
+      </label>
+
+      <label>
+        Date
+        <input id="tt" type="datetime-local" required>
+      </label>
+
+      <label>
+        Entry
+        <input id="te" type="number" step="any" required>
+      </label>
+
+      <label>
+        Stop loss
+        <input id="sl" type="number" step="any">
+      </label>
+
+      <label>
+        Take profit
+        <input id="tp" type="number" step="any">
+      </label>
+
+      <label>
+        Exit
+        <input id="ex" type="number" step="any">
+      </label>
+
+      <label>
+        Quantity / lots
+        <input id="qty" type="number" step="any" value="1">
+      </label>
+
+      <label>
+        Risk $
+        <input id="risk" type="number" step="any" value="0">
+      </label>
+
+      <label>
+        Risk %
+        <input id="riskp" type="number" step="any" value="0">
+      </label>
+
+      <label>
+        P&amp;L
+        <input id="pl" type="number" step="any" value="0">
+      </label>
+
+      <label>
+        Planned R:R
+        <input id="prr" type="number" step="any">
+      </label>
+
+      <label>
+        Actual R
+        <input id="ar" type="number" step="any">
+      </label>
+
+      <label>
+        MFE (R)
+        <input
+          id="mfe"
+          type="number"
+          step="any"
+          placeholder="e.g. 2.4"
+        >
+      </label>
+
+      <label>
+        MAE (R)
+        <input
+          id="mae"
+          type="number"
+          step="any"
+          placeholder="e.g. -0.8"
+        >
+      </label>
+
+      <label>
+        Max favorable price
+        <input id="mfp" type="number" step="any">
+      </label>
+
+      <label>
+        Max adverse price
+        <input id="map" type="number" step="any">
+      </label>
+
+      <label>
+        Rule score %
+        <input
+          id="rulescore"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          value="0"
+        >
+      </label>
+
+      <label>
+        Playbook
+        <select id="playbook">
+          <option value="">No playbook</option>
+        </select>
+      </label>
+
+      <label>
+        Strategy
+        <input id="strategy">
+      </label>
+
+      <label>
+        Setup
+        <input id="setup">
+      </label>
+
+      <label>
+        Session
+
+        <select id="session">
+          <option></option>
+          <option>Asia</option>
+          <option>London</option>
+          <option>New York</option>
+          <option>London/NY</option>
+        </select>
+
+      </label>
+
+      <label>
+        Market condition
+
+        <select id="mc">
+          <option></option>
+          <option>Trending</option>
+          <option>Ranging</option>
+          <option>Volatile</option>
+          <option>Choppy</option>
+          <option>News</option>
+        </select>
+
+      </label>
+
+      <label>
+        Confidence
+        <input
+          id="conf"
+          type="number"
+          min="0"
+          max="100"
+        >
+      </label>
+
+      <label>
+        Emotion before
+        <input id="eb">
+      </label>
+
+      <label>
+        Emotion after
+        <input id="ea">
+      </label>
+
+      <label class="full">
+        Mistakes
+        <input id="mist">
+      </label>
+
+      <label class="full">
+        Entry reason
+        <textarea id="er"></textarea>
+      </label>
+
+      <label class="full">
+        Exit reason
+        <textarea id="xr"></textarea>
+      </label>
+
+      <label class="full">
+        Notes
+        <textarea id="notes"></textarea>
+      </label>
+
+      <label class="full">
+        Chart screenshot
+        <input
+          id="shot"
+          type="file"
+          accept="image/*"
+        >
+      </label>
+
+    </form>
+
+
+    <div class="modal-actions">
+
+      <button id="cancel" class="secondary">
+        Cancel
+      </button>
+
+      <button id="save" class="primary">
+        Save trade
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script src="/app.js"></script>
+
+</body>
+</html>
