@@ -13,6 +13,7 @@ function auth(req,res,next){const t=req.cookies.gt_token;if(!t)return res.status
 
 app.use("/api/market-data",createMarketDataRouter({db,auth}));
 app.use("/api/market-data",createMarketDataProviderRouter({db,auth}));
+app.use("/api/tradelocker",createTradeLockerRouter({db,auth}));
 async function init(){
  await db(`CREATE TABLE IF NOT EXISTS market_symbols(
  id SERIAL PRIMARY KEY,
