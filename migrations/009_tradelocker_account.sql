@@ -1,4 +1,5 @@
 -- GhostTrader V9 - TradeLocker Phase 1 Table
+
 CREATE TABLE IF NOT EXISTS tradelocker_connections (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -16,4 +17,5 @@ CREATE TABLE IF NOT EXISTS tradelocker_connections (
   CONSTRAINT uq_tradelocker_connections_user UNIQUE (user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tradelocker_connections_user_id ON tradelocker_connections(user_id);
+CREATE INDEX IF NOT EXISTS idx_tradelocker_connections_user_id
+ON tradelocker_connections(user_id);
