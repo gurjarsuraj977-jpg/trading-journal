@@ -1,13 +1,19 @@
-# GhostTrader V2
+# GhostTrader V4.0 — Premium Intelligence
 
-Replace the files in the existing `trading-journal` GitHub repository. Keep the existing Render environment variables. V2 automatically migrates the existing PostgreSQL database and preserves V1 users/trades.
+TraderWaves-inspired professional dashboard plus a premium intelligence layer.
 
-Features: accounts, R-multiples, risk %, setup/reason/emotions/mistakes/confidence, screenshots, calendar, analytics, CSV export.
+## New V4 features
+- Ghost Insights / Edge Finder
+- Strongest edge and biggest leak detection
+- Psychology analysis from confidence and pre-trade emotion
+- Process review flags from journal data
+- Weekly performance comparison
+- Risk Center with personal risk outliers and streaks
+- Premium Reports center
+- Existing V3 dashboard, journal, calendar, analytics, accounts, login and PostgreSQL preservation
 
+## Important
+This release uses deterministic analytics over the user's journal data. It does not require an external AI API key. The later AI Coach can be connected as a separate layer.
 
-## V3.0 reliability fixes
-- Fixed trade creation SQL parameter mismatch that prevented new trades from saving.
-- Added account-name/currency validation and duplicate-account handling.
-- Added proper delete error handling.
-- Escaped user-entered table/analytics text before rendering.
-- Preserved the existing PostgreSQL schema and automatic migration behavior.
+## Deploy
+Replace the repository files, commit/push, and let Render redeploy. Keep the existing `DATABASE_URL` and `JWT_SECRET`.

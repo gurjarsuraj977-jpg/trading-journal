@@ -1,8 +1,20 @@
 {
-  "name":"ghosttrader-trading-journal-v2",
-  "version":"2.3.0",
-  "private":true,
-  "scripts":{"start":"node server.js","dev":"node --watch server.js"},
-  "engines":{"node":">=20"},
-  "dependencies":{"bcryptjs":"^2.4.3","cookie-parser":"^1.4.7","dotenv":"^16.4.7","express":"^5.1.0","jsonwebtoken":"^9.0.2","pg":"^8.16.3"}
+  "name": "ghosttrader-trading-journal-v4",
+  "version": "4.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
+  }
 }
