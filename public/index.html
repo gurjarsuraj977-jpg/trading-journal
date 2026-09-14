@@ -1269,15 +1269,119 @@
 
   </div>
 
-  <div class="panel">
+<div class="panel">
 
-    <div
-      id="accountsList"
-      class="account-grid"
-    ></div>
+  <div
+    id="accountsList"
+    class="account-grid"
+  ></div>
+
+</div>
+
+<div class="panel tradelocker-panel">
+
+  <div class="panel-head">
+
+    <div>
+      <span class="eyebrow">TRADELOCKER</span>
+
+      <h2>Broker Connection</h2>
+
+      <p>
+        Connect your TradeLocker account to synchronize trading data
+        with GhostTrader.
+      </p>
+    </div>
+
+    <span id="tradelockerStatus" class="status">
+      <span></span> Not connected
+    </span>
 
   </div>
 
+  <div class="form-grid">
+
+    <label>
+      Environment
+
+      <select id="tlEnvironment">
+        <option value="live">Live</option>
+        <option value="demo">Demo</option>
+      </select>
+
+    </label>
+
+    <label>
+      Server
+
+      <input
+        id="tlServer"
+        placeholder="TradeLocker server"
+      >
+
+    </label>
+
+    <label>
+      Account ID
+
+      <input
+        id="tlAccountId"
+        placeholder="Account ID"
+      >
+
+    </label>
+
+    <label>
+      Access Token
+
+      <input
+        id="tlAccessToken"
+        type="password"
+        placeholder="Access token"
+      >
+
+    </label>
+
+    <label>
+      Refresh Token
+
+      <input
+        id="tlRefreshToken"
+        type="password"
+        placeholder="Refresh token (optional)"
+      >
+
+    </label>
+
+  </div>
+
+  <div class="modal-actions">
+
+    <button
+      id="connectTradeLocker"
+      class="primary"
+      type="button"
+    >
+      Connect TradeLocker
+    </button>
+
+    <button
+      id="disconnectTradeLocker"
+      class="secondary"
+      type="button"
+    >
+      Disconnect
+    </button>
+
+  </div>
+
+  <div
+    id="tradelockerMessage"
+    class="muted"
+    style="margin-top:14px;"
+  ></div>
+
+</div>
 </section>
 
 </main>
