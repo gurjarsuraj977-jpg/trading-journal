@@ -6,17 +6,27 @@
 
 class TradeLockerSessionManager {
   constructor() {
-    this.sessions = new Map(); // Map<userId, SessionObject>
+    this.sessions = new Map();
   }
 
-  setSession(userId, { environment, server, accessToken, refreshToken, accounts = [], selectedAccount = null }) {
+  setSession(
+    userId,
+    {
+      environment,
+      server,
+      accessToken,
+      refreshToken,
+      accounts = [],
+      selectedAccount = null
+    }
+  ) {
     this.sessions.set(Number(userId), {
       environment,
       server,
       accessToken,
       refreshToken,
       accounts,
-      selectedAccount, // { id, accNum, accountName, currency }
+      selectedAccount,
       connectedAt: new Date().toISOString()
     });
   }
@@ -27,7 +37,11 @@ class TradeLockerSessionManager {
 
   updateSelectedAccount(userId, account) {
     const session = this.sessions.get(Number(userId));
-    if (!session) return false;
+
+    if (!session) {
+      return false;
+    }
+
     session.selectedAccount = account;
     return true;
   }
@@ -38,7 +52,11 @@ class TradeLockerSessionManager {
 
   hasActiveSession(userId) {
     const session = this.sessions.get(Number(userId));
-    return Boolean(session && session.accessToken);
+
+    return Boolean(
+      session &&
+      session.accessToken
+    );
   }
 }
 
