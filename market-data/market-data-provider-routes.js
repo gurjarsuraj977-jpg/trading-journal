@@ -14,7 +14,9 @@ const {
 function createMarketDataProviderRouter({ db, auth }) {
   const router = express.Router();
 
-  // Test Twelve Data connection
+  // ---------------------------------------------------------
+  // PROVIDER STATUS
+  // ---------------------------------------------------------
   router.get("/provider/status", auth, async (req, res) => {
     try {
       const result = await fetchLatestCandles({
@@ -42,7 +44,9 @@ function createMarketDataProviderRouter({ db, auth }) {
     }
   });
 
-  // Download latest candles and save them to PostgreSQL
+  // ---------------------------------------------------------
+  // LATEST DATA SYNC
+  // ---------------------------------------------------------
   router.post("/provider/sync", auth, async (req, res) => {
     try {
       const symbol = normalizeSymbol(req.body?.symbol);
@@ -100,14 +104,21 @@ function createMarketDataProviderRouter({ db, auth }) {
     }
   });
 
-  // Download a specific historical date range
+  // ---------------------------------------------------------
+  // HISTORICAL DATA IMPORT
+  // ---------------------------------------------------------
   router.post("/provider/history", auth, async (req, res) => {
     try {
       const symbol = normalizeSymbol(req.body?.symbol);
       const timeframe = normalizeTimeframe(req.body?.timeframe);
 
-      const startDate = req.body?.start_date;
-      const endDate = req.body?.end_date;
+      const startDate = String(
+        req.body?.start_date || ""
+      ).trim();
+
+      const endDate = String(
+        req.body?.end_date || ""
+      ).trim();
 
       if (!symbol) {
         return res.status(400).json({
@@ -118,6 +129,24 @@ function createMarketDataProviderRouter({ db, auth }) {
       if (!startDate || !endDate) {
         return res.status(400).json({
           error: "start_date and end_date are required."
+        });
+      }
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime())
+      ) {
+        return res.status(400).json({
+          error: "Invalid start_date or end_date."
+        });
+      }
+
+      if (start >= end) {
+        return res.status(400).json({
+          error: "start_date must be before end_date."
         });
       }
 
@@ -146,6 +175,8 @@ function createMarketDataProviderRouter({ db, auth }) {
         symbol: result.symbol,
         timeframe: result.timeframe,
         provider_symbol: result.provider_symbol,
+        requested_from: start.toISOString(),
+        requested_to: end.toISOString(),
         received: inserted.received,
         inserted: inserted.inserted,
         skipped: inserted.skipped,
