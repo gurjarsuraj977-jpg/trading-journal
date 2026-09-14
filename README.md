@@ -1,19 +1,13 @@
-# GhostTrader V4.0 — Premium Intelligence
+# GhostTrader V5 — Execution Lab
 
-TraderWaves-inspired professional dashboard plus a premium intelligence layer.
+V5 builds on V4 Premium Intelligence and adds the execution layer:
 
-## New V4 features
-- Ghost Insights / Edge Finder
-- Strongest edge and biggest leak detection
-- Psychology analysis from confidence and pre-trade emotion
-- Process review flags from journal data
-- Weekly performance comparison
-- Risk Center with personal risk outliers and streaks
-- Premium Reports center
-- Existing V3 dashboard, journal, calendar, analytics, accounts, login and PostgreSQL preservation
+- Playbook Builder with weighted required rules
+- MFE / MAE tracking
+- Execution Lab with exit efficiency and rule score
+- Missed Trades tracker
+- Rule discipline fields on trades
+- Advanced trade journal detail fields and screenshots
+- Existing V3/V4 dashboard, analytics, calendar, accounts and insights preserved
 
-## Important
-This release uses deterministic analytics over the user's journal data. It does not require an external AI API key. The later AI Coach can be connected as a separate layer.
-
-## Deploy
-Replace the repository files, commit/push, and let Render redeploy. Keep the existing `DATABASE_URL` and `JWT_SECRET`.
+V6 simulation/replay and V7 AI UI are intentionally not exposed yet; the database is kept forward-compatible for the next upgrades.

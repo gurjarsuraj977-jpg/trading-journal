@@ -1,6 +1,6 @@
 {
-  "name": "ghosttrader-trading-journal-v4",
-  "version": "4.0.0",
+  "name": "ghosttrader-trading-journal-v7",
+  "version": "7.0.0",
   "private": true,
   "scripts": {
     "start": "node server.js",
