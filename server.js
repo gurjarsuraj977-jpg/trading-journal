@@ -2,6 +2,7 @@ require("dotenv").config();
 const express=require("express"),path=require("path"),cookieParser=require("cookie-parser"),bcrypt=require("bcryptjs"),jwt=require("jsonwebtoken"),{Pool}=require("pg");
 const {createMarketDataRouter}=require("./market-data/market-data-routes");
 const {createMarketDataProviderRouter}=require("./market-data/market-data-provider-routes");
+const {calculateTrade}=require("./utils/trade-calculator");
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL&&!process.env.DATABASE_URL.includes("localhost")?{rejectUnauthorized:false}:false});
 app.use(express.json({limit:"5mb"}));app.use(cookieParser());app.use(express.static(path.join(__dirname,"public")));
