@@ -1,12 +1,115 @@
 require("dotenv").config();
 const express=require("express"),path=require("path"),cookieParser=require("cookie-parser"),bcrypt=require("bcryptjs"),jwt=require("jsonwebtoken"),{Pool}=require("pg");
+const {createMarketDataRouter}=require("./market-data/market-data-routes");
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL&&!process.env.DATABASE_URL.includes("localhost")?{rejectUnauthorized:false}:false});
 app.use(express.json({limit:"5mb"}));app.use(cookieParser());app.use(express.static(path.join(__dirname,"public")));
 const db=(q,p=[])=>pool.query(q,p);
 const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
 function auth(req,res,next){const t=req.cookies.gt_token;if(!t)return res.status(401).json({error:"Not authenticated"});try{req.user=jwt.verify(t,SECRET);next()}catch{return res.status(401).json({error:"Session expired"})}}
+
+app.use("/api/market-data",createMarketDataRouter({db,auth}));
+
 async function init(){
+ await db(`CREATE TABLE IF NOT EXISTS market_symbols(
+ id SERIAL PRIMARY KEY,
+ symbol VARCHAR(50) NOT NULL UNIQUE,
+ display_name VARCHAR(120),
+ asset_class VARCHAR(30) NOT NULL DEFAULT 'forex',
+ base_asset VARCHAR(20),
+ quote_asset VARCHAR(20),
+ exchange VARCHAR(80),
+ broker_symbol VARCHAR(80),
+ price_decimals INTEGER NOT NULL DEFAULT 5,
+ quantity_decimals INTEGER NOT NULL DEFAULT 2,
+ tick_size NUMERIC(30,12),
+ contract_size NUMERIC(30,12),
+ active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+ );
+
+ CREATE TABLE IF NOT EXISTS market_timeframes(
+ id SERIAL PRIMARY KEY,
+ code VARCHAR(20) NOT NULL UNIQUE,
+ seconds INTEGER NOT NULL UNIQUE CHECK(seconds>0),
+ display_name VARCHAR(50) NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+ );
+
+ CREATE TABLE IF NOT EXISTS market_candles(
+ id BIGSERIAL PRIMARY KEY,
+ symbol VARCHAR(50) NOT NULL,
+ timeframe VARCHAR(20) NOT NULL,
+ candle_time TIMESTAMPTZ NOT NULL,
+ open NUMERIC(30,12) NOT NULL,
+ high NUMERIC(30,12) NOT NULL,
+ low NUMERIC(30,12) NOT NULL,
+ close NUMERIC(30,12) NOT NULL,
+ volume NUMERIC(30,12),
+ tick_volume BIGINT,
+ spread NUMERIC(30,12),
+ source VARCHAR(80) NOT NULL DEFAULT 'unknown',
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ CONSTRAINT market_candles_ohlc_valid CHECK(
+ high>=low AND high>=open AND high>=close
+ AND low<=open AND low<=close
+ ),
+ CONSTRAINT market_candles_unique UNIQUE(symbol,timeframe,candle_time)
+ );
+
+ CREATE TABLE IF NOT EXISTS market_data_imports(
+ id BIGSERIAL PRIMARY KEY,
+ symbol VARCHAR(50) NOT NULL,
+ timeframe VARCHAR(20) NOT NULL,
+ source VARCHAR(80) NOT NULL,
+ requested_from TIMESTAMPTZ,
+ requested_to TIMESTAMPTZ,
+ rows_received INTEGER NOT NULL DEFAULT 0,
+ rows_inserted INTEGER NOT NULL DEFAULT 0,
+ rows_skipped INTEGER NOT NULL DEFAULT 0,
+ status VARCHAR(30) NOT NULL DEFAULT 'pending',
+ error_message TEXT,
+ started_at TIMESTAMPTZ,
+ completed_at TIMESTAMPTZ,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+ );
+
+ CREATE INDEX IF NOT EXISTS idx_market_candles_lookup
+ ON market_candles(symbol,timeframe,candle_time);
+
+ CREATE INDEX IF NOT EXISTS idx_market_candles_time
+ ON market_candles(candle_time);
+
+ CREATE INDEX IF NOT EXISTS idx_market_candles_source
+ ON market_candles(source);
+
+ CREATE INDEX IF NOT EXISTS idx_market_imports_lookup
+ ON market_data_imports(symbol,timeframe,created_at DESC);
+
+ INSERT INTO market_timeframes(code,seconds,display_name) VALUES
+ ('1m',60,'1 Minute'),
+ ('5m',300,'5 Minutes'),
+ ('15m',900,'15 Minutes'),
+ ('30m',1800,'30 Minutes'),
+ ('1h',3600,'1 Hour'),
+ ('4h',14400,'4 Hours'),
+ ('1d',86400,'1 Day')
+ ON CONFLICT(code) DO NOTHING;
+
+ INSERT INTO market_symbols
+ (symbol,display_name,asset_class,base_asset,quote_asset,price_decimals)
+ VALUES
+ ('XAUUSD','Gold / US Dollar','metals','XAU','USD',2),
+ ('EURUSD','Euro / US Dollar','forex','EUR','USD',5),
+ ('GBPUSD','British Pound / US Dollar','forex','GBP','USD',5),
+ ('USDJPY','US Dollar / Japanese Yen','forex','USD','JPY',3),
+ ('AUDUSD','Australian Dollar / US Dollar','forex','AUD','USD',5),
+ ('USDCAD','US Dollar / Canadian Dollar','forex','USD','CAD',5),
+ ('USDCHF','US Dollar / Swiss Franc','forex','USD','CHF',5),
+ ('BTCUSD','Bitcoin / US Dollar','crypto','BTC','USD',2),
+ ('ETHUSD','Ethereum / US Dollar','crypto','ETH','USD',2)
+ ON CONFLICT(symbol) DO NOTHING`);
  await db(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,name VARCHAR(80) NOT NULL,email VARCHAR(255) UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS accounts(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(100) NOT NULL,starting_balance NUMERIC(20,2) DEFAULT 0,currency VARCHAR(10) DEFAULT 'USD',created_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(user_id,name));
  CREATE TABLE IF NOT EXISTS trades(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,account VARCHAR(100) DEFAULT 'Main Account',symbol VARCHAR(30) NOT NULL,direction VARCHAR(10) NOT NULL CHECK(direction IN('BUY','SELL')),entry NUMERIC(20,8) NOT NULL,stop_loss NUMERIC(20,8),take_profit NUMERIC(20,8),exit_price NUMERIC(20,8),quantity NUMERIC(20,8) DEFAULT 1,risk_amount NUMERIC(20,2) DEFAULT 0,profit_loss NUMERIC(20,2) DEFAULT 0,strategy VARCHAR(100),session VARCHAR(40),notes TEXT,trade_date TIMESTAMPTZ DEFAULT NOW(),created_at TIMESTAMPTZ DEFAULT NOW());`);
