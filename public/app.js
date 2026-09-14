@@ -2245,7 +2245,275 @@ $('#refreshExecution').onclick=()=>
 
 $('#refreshInsights').onclick=()=>
   insights().catch(e=>showError(e.message));
+/* =========================================================
+   V9 TRADELOCKER CONNECTION
+   ========================================================= */
 
+async function loadTradeLockerConnection(){
+
+  const status=$("#tradelockerStatus");
+  const message=$("#tradelockerMessage");
+
+  if(!status) return;
+
+  try{
+
+    const d=await api('/api/tradelocker/connection');
+
+    if(d.connection){
+
+      const c=d.connection;
+
+      $("#tlEnvironment").value=
+        c.environment||'live';
+
+      $("#tlServer").value=
+        c.server||'';
+
+      $("#tlAccountId").value=
+        c.account_id||'';
+
+      /*
+       * Tokens are intentionally not returned by the backend.
+       * They remain stored server-side.
+       */
+      $("#tlAccessToken").value='';
+      $("#tlRefreshToken").value='';
+
+      setTradeLockerStatus(true);
+
+      if(message)
+        message.textContent=
+          'TradeLocker connection is configured for this account.';
+
+    }else{
+
+      setTradeLockerStatus(false);
+
+      if(message)
+        message.textContent=
+          'No TradeLocker connection configured yet.';
+
+    }
+
+  }catch(e){
+
+    console.warn(
+      'TradeLocker connection check:',
+      e.message
+    );
+
+    setTradeLockerStatus(false);
+
+  }
+
+}
+
+
+function setTradeLockerStatus(connected){
+
+  const status=$("#tradelockerStatus");
+
+  if(!status) return;
+
+  if(connected){
+
+    status.innerHTML=
+      '<span></span> Connected';
+
+    status.classList.add('connected');
+
+  }else{
+
+    status.innerHTML=
+      '<span></span> Not connected';
+
+    status.classList.remove('connected');
+
+  }
+
+}
+
+
+async function connectTradeLocker(){
+
+  const btn=$("#connectTradeLocker");
+
+  const message=$("#tradelockerMessage");
+
+  if(!btn)return;
+
+  const environment=
+    $("#tlEnvironment").value;
+
+  const server=
+    $("#tlServer").value.trim();
+
+  const accountId=
+    $("#tlAccountId").value.trim();
+
+  const accessToken=
+    $("#tlAccessToken").value.trim();
+
+  const refreshToken=
+    $("#tlRefreshToken").value.trim();
+
+
+  if(!server)
+    throw Error('TradeLocker server is required.');
+
+  if(!accountId)
+    throw Error('TradeLocker account ID is required.');
+
+  if(!accessToken)
+    throw Error('TradeLocker access token is required.');
+
+
+  btn.disabled=true;
+
+  if(message)
+    message.textContent=
+      'Connecting to TradeLocker...';
+
+
+  try{
+
+    const d=await api(
+      '/api/tradelocker/connect',
+      {
+        method:'POST',
+
+        body:JSON.stringify({
+
+          environment,
+          server,
+          accountId,
+          accessToken,
+          refreshToken
+
+        })
+      }
+    );
+
+
+    setTradeLockerStatus(true);
+
+    /*
+     * Clear sensitive token fields after successful save.
+     */
+    $("#tlAccessToken").value='';
+    $("#tlRefreshToken").value='';
+
+
+    if(message){
+
+      message.textContent=
+        d.message||
+        'TradeLocker connected successfully.';
+
+    }
+
+  }finally{
+
+    btn.disabled=false;
+
+  }
+
+}
+
+
+async function disconnectTradeLocker(){
+
+  const btn=$("#disconnectTradeLocker");
+
+  const message=$("#tradelockerMessage");
+
+  if(!confirm(
+    'Disconnect this TradeLocker account?'
+  ))return;
+
+
+  if(btn)
+    btn.disabled=true;
+
+
+  try{
+
+    const d=await api(
+      '/api/tradelocker/disconnect',
+      {
+        method:'POST'
+      }
+    );
+
+
+    setTradeLockerStatus(false);
+
+    $("#tlServer").value='';
+    $("#tlAccountId").value='';
+    $("#tlAccessToken").value='';
+    $("#tlRefreshToken").value='';
+
+
+    if(message){
+
+      message.textContent=
+        d.message||
+        'TradeLocker disconnected.';
+
+    }
+
+  }finally{
+
+    if(btn)
+      btn.disabled=false;
+
+  }
+
+}
+
+
+$("#connectTradeLocker")?.addEventListener(
+  'click',
+  async()=>{
+
+    try{
+
+      await connectTradeLocker();
+
+    }catch(e){
+
+      showError(e.message);
+
+      const message=
+        $("#tradelockerMessage");
+
+      if(message)
+        message.textContent=
+          e.message;
+
+    }
+
+  }
+);
+
+
+$("#disconnectTradeLocker")?.addEventListener(
+  'click',
+  async()=>{
+
+    try{
+
+      await disconnectTradeLocker();
+
+    }catch(e){
+
+      showError(e.message);
+
+    }
+
+  }
+);
 
 /* =========================================================
    V8.3 MARKET CHART
