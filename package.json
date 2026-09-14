@@ -1,6 +1,6 @@
 {
   "name":"ghosttrader-trading-journal-v2",
-  "version":"2.1.0",
+  "version":"2.3.0",
   "private":true,
   "scripts":{"start":"node server.js","dev":"node --watch server.js"},
   "engines":{"node":">=20"},
