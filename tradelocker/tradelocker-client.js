@@ -12,17 +12,19 @@ class TradeLockerClient {
   getBaseUrl(environment) {
     const env = (environment || '').toLowerCase().trim();
     const url = TL_ENDPOINTS[env];
+
     if (!url) {
-      throw new Error(`Invalid TradeLocker environment: "${environment}". Must be "demo" or "live".`);
+      throw new Error(
+        `Invalid TradeLocker environment: "${environment}". Must be "demo" or "live".`
+      );
     }
+
     return url;
   }
 
-  /**
-   * Authenticate with TradeLocker backend
-   */
   async authenticate({ environment, server, email, password }) {
     const baseUrl = this.getBaseUrl(environment);
+
     const response = await fetch(`${baseUrl}/auth/jwt/token`, {
       method: 'POST',
       headers: {
@@ -33,8 +35,13 @@ class TradeLockerClient {
     });
 
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      const msg = data.message || data.error || `Authentication failed (${response.status})`;
+      const msg =
+        data.message ||
+        data.error ||
+        `Authentication failed (${response.status})`;
+
       throw new Error(msg);
     }
 
@@ -48,11 +55,11 @@ class TradeLockerClient {
     };
   }
 
-  /**
-   * Refresh JWT Token
-   */
   async refreshAccessToken({ environment, refreshToken }) {
-    if (!refreshToken) throw new Error('No refresh token provided.');
+    if (!refreshToken) {
+      throw new Error('No refresh token provided.');
+    }
+
     const baseUrl = this.getBaseUrl(environment);
 
     const response = await fetch(`${baseUrl}/auth/jwt/refresh`, {
@@ -65,6 +72,7 @@ class TradeLockerClient {
     });
 
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
       throw new Error(data.message || 'Token refresh failed');
     }
@@ -75,11 +83,9 @@ class TradeLockerClient {
     };
   }
 
-  /**
-   * Fetch all accounts for the authenticated session
-   */
   async getAllAccounts({ environment, accessToken }) {
     const baseUrl = this.getBaseUrl(environment);
+
     const response = await fetch(`${baseUrl}/auth/jwt/all-accounts`, {
       method: 'GET',
       headers: {
@@ -89,67 +95,134 @@ class TradeLockerClient {
     });
 
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      throw new Error(data.message || `Failed to fetch TradeLocker accounts (${response.status})`);
+      throw new Error(
+        data.message ||
+        `Failed to fetch TradeLocker accounts (${response.status})`
+      );
     }
 
-    // Response can be { accounts: [...] } or array directly
-    const rawAccounts = Array.isArray(data) ? data : (data.accounts || []);
+    const rawAccounts = Array.isArray(data)
+      ? data
+      : (data.accounts || []);
 
-    // Normalize accounts strictly without fabricating account numbers
-    return rawAccounts.map(acc => {
-      const rawId = acc.id !== undefined ? acc.id : acc.accountId;
-      let rawAccNum = null;
+    return rawAccounts
+      .map(acc => {
+        const rawId =
+          acc.id !== undefined
+            ? acc.id
+            : acc.accountId;
 
-      if (acc.accNum !== undefined && acc.accNum !== null && !isNaN(Number(acc.accNum))) {
-        rawAccNum = Number(acc.accNum);
-      } else if (acc.accountNumber !== undefined && acc.accountNumber !== null && !isNaN(Number(acc.accountNumber))) {
-        rawAccNum = Number(acc.accountNumber);
-      }
+        let rawAccNum = null;
 
-      return {
-        id: String(rawId || ''),
-        accNum: rawAccNum, // NULL if missing; never defaulted to 1
-        accountName: acc.name || acc.accountName || acc.account_name || 'TradeLocker Account',
-        currency: acc.currency || 'USD',
-        status: acc.status || 'Active'
-      };
-    }).filter(a => Boolean(a.id));
+        if (
+          acc.accNum !== undefined &&
+          acc.accNum !== null &&
+          !isNaN(Number(acc.accNum))
+        ) {
+          rawAccNum = Number(acc.accNum);
+        } else if (
+          acc.accountNumber !== undefined &&
+          acc.accountNumber !== null &&
+          !isNaN(Number(acc.accountNumber))
+        ) {
+          rawAccNum = Number(acc.accountNumber);
+        }
+
+        return {
+          id: String(rawId || ''),
+          accNum: rawAccNum,
+          accountName:
+            acc.name ||
+            acc.accountName ||
+            acc.account_name ||
+            'TradeLocker Account',
+          currency: acc.currency || 'USD',
+          status: acc.status || 'Active'
+        };
+      })
+      .filter(a => Boolean(a.id));
   }
 
-  /**
-   * Get account balance/equity state
-   */
-  async getAccountState({ environment, accessToken, accountId, accNum }) {
-    if (!accountId) throw new Error('accountId is required to fetch state.');
+  async getAccountState({
+    environment,
+    accessToken,
+    accountId,
+    accNum
+  }) {
+    if (!accountId) {
+      throw new Error('accountId is required to fetch state.');
+    }
+
+    if (
+      accNum === null ||
+      accNum === undefined ||
+      isNaN(Number(accNum))
+    ) {
+      throw new Error(
+        'accNum is missing or invalid; cannot query account state.'
+      );
+    }
+
     const baseUrl = this.getBaseUrl(environment);
 
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'accNum': String(accNum)
     };
 
-    if (accNum !== null && accNum !== undefined) {
-      headers['accNum'] = String(accNum);
-    }
-
-    const response = await fetch(`${baseUrl}/trade/accounts/${encodeURIComponent(accountId)}/state`, {
-      method: 'GET',
-      headers
-    });
+    const response = await fetch(
+      `${baseUrl}/trade/accounts/${encodeURIComponent(accountId)}/state`,
+      {
+        method: 'GET',
+        headers
+      }
+    );
 
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      throw new Error(data.message || `Failed to fetch account state (${response.status})`);
+      throw new Error(
+        data.message ||
+        `Failed to fetch account state (${response.status})`
+      );
     }
 
-    const state = Array.isArray(data) ? (data[0] || {}) : (data.state || data);
+    const root = data.d !== undefined
+      ? data.d
+      : data;
+
+    const state = Array.isArray(root)
+      ? (root[0] || {})
+      : (root.state || root);
+
     return {
-      balance: state.balance !== undefined ? Number(state.balance) : null,
-      equity: state.equity !== undefined ? Number(state.equity) : null,
-      freeMargin: state.freeMargin !== undefined ? Number(state.freeMargin) : null,
-      marginUsed: state.marginUsed !== undefined ? Number(state.marginUsed) : null,
-      unrealizedPl: state.unrealizedPl !== undefined ? Number(state.unrealizedPl) : null
+      balance:
+        state.balance !== undefined
+          ? Number(state.balance)
+          : null,
+
+      equity:
+        state.equity !== undefined
+          ? Number(state.equity)
+          : null,
+
+      freeMargin:
+        state.freeMargin !== undefined
+          ? Number(state.freeMargin)
+          : null,
+
+      marginUsed:
+        state.marginUsed !== undefined
+          ? Number(state.marginUsed)
+          : null,
+
+      unrealizedPl:
+        state.unrealizedPl !== undefined
+          ? Number(state.unrealizedPl)
+          : null
     };
   }
 }
