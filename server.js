@@ -112,6 +112,13 @@ async function init(){
  ('BTCUSD','Bitcoin / US Dollar','crypto','BTC','USD',2),
  ('ETHUSD','Ethereum / US Dollar','crypto','ETH','USD',2)
  ON CONFLICT(symbol) DO NOTHING`);
+  await db(`
+  UPDATE market_symbols
+  SET contract_size=100,
+      updated_at=NOW()
+  WHERE symbol='XAUUSD'
+    AND (contract_size IS NULL OR contract_size=0)
+ `);
  await db(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,name VARCHAR(80) NOT NULL,email VARCHAR(255) UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS accounts(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(100) NOT NULL,starting_balance NUMERIC(20,2) DEFAULT 0,currency VARCHAR(10) DEFAULT 'USD',created_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(user_id,name));
  CREATE TABLE IF NOT EXISTS trades(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,account VARCHAR(100) DEFAULT 'Main Account',symbol VARCHAR(30) NOT NULL,direction VARCHAR(10) NOT NULL CHECK(direction IN('BUY','SELL')),entry NUMERIC(20,8) NOT NULL,stop_loss NUMERIC(20,8),take_profit NUMERIC(20,8),exit_price NUMERIC(20,8),quantity NUMERIC(20,8) DEFAULT 1,risk_amount NUMERIC(20,2) DEFAULT 0,profit_loss NUMERIC(20,2) DEFAULT 0,strategy VARCHAR(100),session VARCHAR(40),notes TEXT,trade_date TIMESTAMPTZ DEFAULT NOW(),created_at TIMESTAMPTZ DEFAULT NOW());`);
