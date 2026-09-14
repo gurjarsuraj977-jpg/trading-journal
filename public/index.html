@@ -1,11 +1,61 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GhostTrader V2.3</title><link rel="stylesheet" href="/styles.css"></head><body>
-<div id="auth"><div class="card auth"><b class="logo">GHOSTTRADER</b><p>Trade in silence. Execute with precision.</p><form id="af"><input id="an" placeholder="Name" class="reg"><input id="ae" type="email" placeholder="Email" required><input id="ap" type="password" placeholder="Password" required><button>Login</button></form><button id="switch" class="link">Create account</button></div></div>
-<div id="app" class="hide"><aside><b class="logo">GHOSTTRADER</b><small>JOURNAL V2.3</small><nav><button data-p="dashboard">Dashboard</button><button data-p="trades">Trades</button><button data-p="calendar">Calendar</button><button data-p="analytics">Analytics</button><button data-p="accounts">Accounts</button></nav><button id="logout">Log out</button></aside><main><header><div><small>GHOSTTRADER / JOURNAL</small><h1 id="title">Dashboard</h1></div><div><button id="export">Export CSV</button><button id="add">+ Add Trade</button></div></header>
-<section id="dashboard" class="page"><div id="stats" class="stats"></div><div class="grid"><div class="card"><h2>Equity Curve</h2><canvas id="chart"></canvas></div><div class="card"><h2>Performance</h2><div id="perf"></div></div></div><div class="card"><h2>Recent Trades</h2><div id="recent"></div></div></section>
-<section id="trades" class="page hide"><div class="card filters"><input id="fs" placeholder="Symbol"><select id="fd"><option value="">Direction</option><option>BUY</option><option>SELL</option></select><select id="fr"><option value="">Result</option><option value="win">Wins</option><option value="loss">Losses</option></select><button id="cf">Clear</button></div><div class="card"><div id="tradeTable"></div></div></section>
-<section id="calendar" class="page hide"><div class="card"><div class="calhead"><button id="prev">←</button><h2 id="mt"></h2><button id="next">→</button></div><div class="week"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div id="gridcal" class="cal"></div></div></section>
-<section id="analytics" class="page hide"><div id="astats" class="stats"></div><div class="grid"><div class="card"><h2>By Symbol</h2><div id="sym"></div></div><div class="card"><h2>By Strategy</h2><div id="strat"></div></div><div class="card"><h2>By Session</h2><div id="sess"></div></div><div class="card"><h2>By Direction</h2><div id="dir"></div></div></div></section>
-<section id="accounts" class="page hide"><div class="card"><div class="row"><h2>Accounts</h2><button id="newacc">+ Add Account</button></div><div id="accountsList"></div></div></section></main></div>
-<div id="modal" class="modal hide"><div class="card modalcard"><button id="close" class="x">×</button><h2 id="mh">Add Trade</h2><form id="tf" class="form">
-<input id="tid" type="hidden"><label>Account<select id="ta"></select></label><label>Symbol<input id="ts" required placeholder="XAUUSD"></label><label>Direction<select id="td"><option>BUY</option><option>SELL</option></select></label><label>Date<input id="tt" type="datetime-local" required></label><label>Entry<input id="te" type="number" step="any" required></label><label>Stop Loss<input id="sl" type="number" step="any"></label><label>Take Profit<input id="tp" type="number" step="any"></label><label>Exit<input id="ex" type="number" step="any"></label><label>Quantity<input id="qty" type="number" step="any" value="1"></label><label>Risk $<input id="risk" type="number" step="any" value="0"></label><label>Risk %<input id="riskp" type="number" step="any" value="0"></label><label>P&L<input id="pl" type="number" step="any" value="0"></label><label>Planned R:R<input id="prr" type="number" step="any"></label><label>Actual R<input id="ar" type="number" step="any"></label><label>Strategy<input id="strategy"></label><label>Setup<input id="setup"></label><label>Session<select id="session"><option></option><option>Asia</option><option>London</option><option>New York</option><option>London/NY</option></select></label><label>Market Condition<select id="mc"><option></option><option>Trending</option><option>Ranging</option><option>Volatile</option><option>Choppy</option><option>News</option></select></label><label>Confidence<input id="conf" type="number" min="0" max="100"></label><label>Emotion Before<input id="eb"></label><label>Emotion After<input id="ea"></label><label class="full">Mistakes<input id="mist"></label><label class="full">Entry Reason<textarea id="er"></textarea></label><label class="full">Exit Reason<textarea id="xr"></textarea></label><label class="full">Notes<textarea id="notes"></textarea></label><label class="full">Chart Screenshot<input id="shot" type="file" accept="image/*"></label></form><button id="save">Save Trade</button></div></div>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GhostTrader V3.0</title><link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="auth"><div class="auth-card"><div class="brand-mark">G</div><div class="logo">GHOSTTRADER</div><p>Trade in silence. Execute with precision.</p><form id="af"><input id="an" placeholder="Name" class="reg"><input id="ae" type="email" placeholder="Email" required><input id="ap" type="password" placeholder="Password" required><button>Login</button></form><button id="switch" class="link">Create account</button></div></div>
+
+<div id="app" class="hide">
+<aside class="sidebar">
+  <div class="side-brand"><div class="brand-mark small">G</div><div><b>GHOSTTRADER</b><small>TRADING JOURNAL</small></div></div>
+  <div class="side-section"><span>WORKSPACE</span>
+    <nav>
+      <button data-p="dashboard" class="active"><i>⌂</i><span>Dashboard</span></button>
+      <button data-p="trades"><i>✎</i><span>Journal</span></button>
+      <button data-p="calendar"><i>▦</i><span>Calendar</span></button>
+      <button data-p="analytics"><i>◈</i><span>Analytics</span></button>
+      <button data-p="accounts"><i>▣</i><span>Accounts</span></button>
+    </nav>
+  </div>
+  <div class="side-section"><span>TOOLS</span><nav><button id="quickExport"><i>⇩</i><span>Export CSV</span></button></nav></div>
+  <div class="side-bottom"><div class="profile"><div class="avatar" id="avatar">G</div><div><b id="sideName">Trader</b><small id="sideEmail">GhostTrader</small></div></div><button id="logout" class="logout">↪ <span>Log out</span></button></div>
+</aside>
+
+<main>
+<header class="topbar">
+  <div class="mobile-brand"><div class="brand-mark small">G</div><b>GHOSTTRADER</b></div>
+  <div class="crumb"><small>WORKSPACE</small><strong id="title">Dashboard</strong></div>
+  <div class="top-actions">
+    <label class="account-select"><span>ACCOUNT</span><select id="dashAccount"><option value="">All accounts</option></select></label>
+    <label class="range-select"><span>PERIOD</span><select id="range"><option value="all">All time</option><option value="month">This month</option><option value="3m">Last 3 months</option><option value="6m">Last 6 months</option><option value="year" selected>Last 12 months</option></select></label>
+    <button id="insights" class="secondary">✦ Insights</button><button id="add" class="primary">＋ Add trade</button>
+  </div>
+</header>
+
+<section id="dashboard" class="page">
+  <div class="welcome"><div><span class="eyebrow">LIVE JOURNAL</span><h1>Performance overview</h1><p id="periodText">Your trading performance at a glance.</p></div><div class="status"><span></span> Tracking</div></div>
+  <div id="stats" class="stats-grid"></div>
+  <div class="dashboard-grid">
+    <div class="panel equity-panel"><div class="panel-head"><div><h2>Equity curve</h2><p>Cumulative P&amp;L over time</p></div><div class="legend"><span></span> Equity</div></div><canvas id="chart"></canvas></div>
+    <div class="panel risk-panel"><div class="panel-head"><div><h2>Risk &amp; statistics</h2><p>Core performance metrics</p></div></div><div id="perf" class="metric-list"></div></div>
+  </div>
+  <div class="dashboard-grid lower">
+    <div class="panel symbols-panel"><div class="panel-head"><div><h2>Symbols traded</h2><p>Distribution by number of trades</p></div></div><div class="donut-wrap"><canvas id="donut"></canvas><div id="donutCenter"></div></div><div id="symbolLegend" class="symbol-legend"></div></div>
+    <div class="panel pnl-panel"><div class="panel-head"><div><h2>P&amp;L</h2><p>Daily profit and loss</p></div><b id="pnlTotal" class="big-number">$0.00</b></div><canvas id="pnlChart"></canvas></div>
+  </div>
+  <div class="panel recent-panel"><div class="panel-head"><div><h2>Recent trades</h2><p>Latest journal activity</p></div><button class="ghost" onclick="page('trades')">View journal →</button></div><div id="recent"></div></div>
+</section>
+
+<section id="trades" class="page hide"><div class="section-head"><div><span class="eyebrow">JOURNAL</span><h1>Trade journal</h1></div><button class="primary" onclick="openModal()">＋ Add trade</button></div><div class="panel filters"><input id="fs" placeholder="Search symbol"><select id="fd"><option value="">All directions</option><option>BUY</option><option>SELL</option></select><select id="fr"><option value="">All results</option><option value="win">Wins</option><option value="loss">Losses</option></select><select id="tradeAccount"><option value="">All accounts</option></select><button id="cf" class="secondary">Clear</button></div><div class="panel"><div id="tradeTable"></div></div></section>
+
+<section id="calendar" class="page hide"><div class="section-head"><div><span class="eyebrow">JOURNAL</span><h1>Trading calendar</h1></div><button class="secondary" onclick="page('trades')">View all trades →</button></div><div class="panel"><div class="calhead"><button id="prev" class="icon-btn">‹</button><div><h2 id="mt"></h2><small>Click a day to view its trades</small></div><button id="next" class="icon-btn">›</button></div><div class="week"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div><div id="gridcal" class="cal"></div></div></section>
+
+<section id="analytics" class="page hide"><div class="section-head"><div><span class="eyebrow">ANALYTICS</span><h1>Deep performance</h1></div></div><div id="astats" class="stats-grid six"></div><div class="analytics-grid"><div class="panel"><div class="panel-head"><div><h2>By symbol</h2><p>Profit contribution</p></div></div><div id="sym"></div></div><div class="panel"><div class="panel-head"><div><h2>By strategy</h2><p>Performance by setup</p></div></div><div id="strat"></div></div><div class="panel"><div class="panel-head"><div><h2>By session</h2><p>Performance by market session</p></div></div><div id="sess"></div></div><div class="panel"><div class="panel-head"><div><h2>By direction</h2><p>Long vs short</p></div></div><div id="dir"></div></div></div></section>
+
+<section id="accounts" class="page hide"><div class="section-head"><div><span class="eyebrow">CAPITAL</span><h1>Trading accounts</h1></div><button id="newacc" class="primary">＋ Add account</button></div><div class="panel"><div id="accountsList" class="account-grid"></div></div></section>
+</main></div>
+
+<div id="modal" class="modal hide"><div class="modal-card"><button id="close" class="x">×</button><div class="modal-title"><span class="eyebrow">JOURNAL ENTRY</span><h2 id="mh">Add trade</h2></div><form id="tf" class="form"><input id="tid" type="hidden"><label>Account<select id="ta"></select></label><label>Symbol<input id="ts" required placeholder="XAUUSD"></label><label>Direction<select id="td"><option>BUY</option><option>SELL</option></select></label><label>Date<input id="tt" type="datetime-local" required></label><label>Entry<input id="te" type="number" step="any" required></label><label>Stop loss<input id="sl" type="number" step="any"></label><label>Take profit<input id="tp" type="number" step="any"></label><label>Exit<input id="ex" type="number" step="any"></label><label>Quantity / lots<input id="qty" type="number" step="any" value="1"></label><label>Risk $<input id="risk" type="number" step="any" value="0"></label><label>Risk %<input id="riskp" type="number" step="any" value="0"></label><label>P&amp;L<input id="pl" type="number" step="any" value="0"></label><label>Planned R:R<input id="prr" type="number" step="any"></label><label>Actual R<input id="ar" type="number" step="any"></label><label>Strategy<input id="strategy"></label><label>Setup<input id="setup"></label><label>Session<select id="session"><option></option><option>Asia</option><option>London</option><option>New York</option><option>London/NY</option></select></label><label>Market condition<select id="mc"><option></option><option>Trending</option><option>Ranging</option><option>Volatile</option><option>Choppy</option><option>News</option></select></label><label>Confidence<input id="conf" type="number" min="0" max="100"></label><label>Emotion before<input id="eb"></label><label>Emotion after<input id="ea"></label><label class="full">Mistakes<input id="mist"></label><label class="full">Entry reason<textarea id="er"></textarea></label><label class="full">Exit reason<textarea id="xr"></textarea></label><label class="full">Notes<textarea id="notes"></textarea></label><label class="full">Chart screenshot<input id="shot" type="file" accept="image/*"></label></form><div class="modal-actions"><button id="cancel" class="secondary">Cancel</button><button id="save" class="primary">Save trade</button></div></div></div>
 <script src="/app.js"></script></body></html>
