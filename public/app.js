@@ -79,8 +79,17 @@ function page(p){
   if(p==='reports')
     reports().catch(e=>showError(e.message));
 
-  if(p==='accounts')
-    accounts().catch(e=>showError(e.message));
+if(p==='accounts'){
+
+  accounts().catch(e=>showError(e.message));
+
+  loadTradeLockerConnection()
+    .catch(e=>console.warn(
+      'TradeLocker load:',
+      e.message
+    ));
+
+}
 
   if(p==='playbooks')
     playbooks().catch(e=>showError(e.message));
@@ -270,9 +279,16 @@ async function boot(){
   $("#avatar").textContent=
     (state.user?.name||'G').charAt(0).toUpperCase();
 
-  await loadAccounts();
-  await loadPlaybooks();
-  await dashboard();
+await loadAccounts();
+await loadPlaybooks();
+
+await loadTradeLockerConnection()
+  .catch(e=>console.warn(
+    'TradeLocker connection:',
+    e.message
+  ));
+
+await dashboard();
 }
 
 function accountOptions(selected=''){
