@@ -9,30 +9,34 @@ const { TradeLockerSessionManager } = require('./tradelocker-auth');
 
 function createTradeLockerRouter({ db, auth }) {
   if (typeof db !== 'function') {
-    throw new Error('TradeLockerRouter requires the V8 db(query, params) helper function.');
+    throw new Error(
+      'TradeLockerRouter requires the V8 db(query, params) helper function.'
+    );
   }
+
   if (typeof auth !== 'function') {
-    throw new Error('TradeLockerRouter requires the V8 auth middleware function.');
+    throw new Error(
+      'TradeLockerRouter requires the V8 auth middleware function.'
+    );
   }
 
   const router = express.Router();
   const client = new TradeLockerClient();
   const sessions = new TradeLockerSessionManager();
 
-  // Enforce V8 authentication on all TradeLocker routes
   router.use(auth);
 
-  /**
-   * GET /api/tradelocker/status
-   * Reports connection status for the authenticated user.
-   * On process restart, reports 'reconnect_required' if DB metadata exists.
-   */
+  // ------------------------------------------------------------
+  // STATUS
+  // ------------------------------------------------------------
   router.get('/status', async (req, res) => {
     try {
       const userId = req.user.id;
+
       const { rows } = await db(
-        `SELECT environment, server, account_id, acc_num, account_name, currency, status, last_error, last_connected_at 
-         FROM tradelocker_connections WHERE user_id = $1`,
+        `SELECT environment, server, account_id, acc_num, account_name, currency, status, last_error, last_connected_at
+         FROM tradelocker_connections
+         WHERE user_id = $1`,
         [userId]
       );
 
@@ -47,7 +51,6 @@ function createTradeLockerRouter({ db, auth }) {
         });
       }
 
-      // RAM session missing after restart -> reconnect_required
       if (!ramSession || !ramSession.accessToken) {
         return res.json({
           connected: false,
@@ -60,13 +63,20 @@ function createTradeLockerRouter({ db, auth }) {
           currency: dbMeta.currency,
           lastConnectedAt: dbMeta.last_connected_at,
           lastError: dbMeta.last_error,
-          message: 'Server was restarted. In-memory session expired. Please reconnect.'
+          message:
+            'Server was restarted. In-memory session expired. Please reconnect.'
         });
       }
 
-      // Active RAM session exists: attempt to fetch state if account is chosen
       let state = null;
-      if (ramSession.selectedAccount && ramSession.selectedAccount.id) {
+
+      if (
+        ramSession.selectedAccount &&
+        ramSession.selectedAccount.id &&
+        ramSession.selectedAccount.accNum !== null &&
+        ramSession.selectedAccount.accNum !== undefined &&
+        !isNaN(Number(ramSession.selectedAccount.accNum))
+      ) {
         try {
           state = await client.getAccountState({
             environment: ramSession.environment,
@@ -75,15 +85,16 @@ function createTradeLockerRouter({ db, auth }) {
             accNum: ramSession.selectedAccount.accNum
           });
         } catch (err) {
-          // If token expired, attempt refresh
           if (ramSession.refreshToken) {
             try {
               const refreshed = await client.refreshAccessToken({
                 environment: ramSession.environment,
                 refreshToken: ramSession.refreshToken
               });
+
               ramSession.accessToken = refreshed.accessToken;
               ramSession.refreshToken = refreshed.refreshToken;
+
               state = await client.getAccountState({
                 environment: ramSession.environment,
                 accessToken: ramSession.accessToken,
@@ -92,6 +103,7 @@ function createTradeLockerRouter({ db, auth }) {
               });
             } catch (refErr) {
               sessions.clearSession(userId);
+
               return res.json({
                 connected: false,
                 status: 'reconnect_required',
@@ -111,46 +123,86 @@ function createTradeLockerRouter({ db, auth }) {
         status: 'connected',
         environment: ramSession.environment,
         server: ramSession.server,
-        accountId: ramSession.selectedAccount ? ramSession.selectedAccount.id : dbMeta.account_id,
-        accNum: ramSession.selectedAccount ? ramSession.selectedAccount.accNum : dbMeta.acc_num,
-        accountName: ramSession.selectedAccount ? ramSession.selectedAccount.accountName : dbMeta.account_name,
-        currency: ramSession.selectedAccount ? ramSession.selectedAccount.currency : dbMeta.currency,
+        accountId: ramSession.selectedAccount
+          ? ramSession.selectedAccount.id
+          : dbMeta.account_id,
+        accNum: ramSession.selectedAccount
+          ? ramSession.selectedAccount.accNum
+          : dbMeta.acc_num,
+        accountName: ramSession.selectedAccount
+          ? ramSession.selectedAccount.accountName
+          : dbMeta.account_name,
+        currency: ramSession.selectedAccount
+          ? ramSession.selectedAccount.currency
+          : dbMeta.currency,
         lastConnectedAt: dbMeta.last_connected_at,
         lastError: null,
         state
       });
     } catch (err) {
       console.error('[TradeLocker Status Error]:', err.message);
-      return res.status(500).json({ error: 'Failed to retrieve connection status.' });
+
+      return res.status(500).json({
+        error: 'Failed to retrieve connection status.'
+      });
     }
   });
 
-  /**
-   * POST /api/tradelocker/connect
-   * Validates credentials with TradeLocker, normalizes accounts, stores tokens in RAM only.
-   */
+  // ------------------------------------------------------------
+  // CONNECT
+  // ------------------------------------------------------------
   router.post('/connect', async (req, res) => {
-    const { environment, server, email, password } = req.body || {};
+    const {
+      environment,
+      server,
+      email,
+      password
+    } = req.body || {};
+
     const userId = req.user.id;
 
-    if (!environment || !['demo', 'live'].includes(environment.toLowerCase())) {
-      return res.status(400).json({ error: 'Valid environment ("demo" or "live") is required.' });
+    if (
+      !environment ||
+      !['demo', 'live'].includes(environment.toLowerCase())
+    ) {
+      return res.status(400).json({
+        error: 'Valid environment ("demo" or "live") is required.'
+      });
     }
-    if (!server || typeof server !== 'string' || !server.trim()) {
-      return res.status(400).json({ error: 'Server name is required.' });
+
+    if (
+      !server ||
+      typeof server !== 'string' ||
+      !server.trim()
+    ) {
+      return res.status(400).json({
+        error: 'Server name is required.'
+      });
     }
-    if (!email || typeof email !== 'string' || !email.trim()) {
-      return res.status(400).json({ error: 'Email is required.' });
+
+    if (
+      !email ||
+      typeof email !== 'string' ||
+      !email.trim()
+    ) {
+      return res.status(400).json({
+        error: 'Email is required.'
+      });
     }
-    if (!password || typeof password !== 'string') {
-      return res.status(400).json({ error: 'Password is required.' });
+
+    if (
+      !password ||
+      typeof password !== 'string'
+    ) {
+      return res.status(400).json({
+        error: 'Password is required.'
+      });
     }
 
     const envClean = environment.toLowerCase().trim();
     const srvClean = server.trim();
 
     try {
-      // 1. Authenticate with TradeLocker
       const authData = await client.authenticate({
         environment: envClean,
         server: srvClean,
@@ -158,20 +210,23 @@ function createTradeLockerRouter({ db, auth }) {
         password
       });
 
-      // 2. Fetch available accounts
       const accounts = await client.getAllAccounts({
         environment: envClean,
         accessToken: authData.accessToken
       });
 
       if (!accounts || accounts.length === 0) {
-        return res.status(400).json({ error: 'TradeLocker login succeeded, but no trading accounts were found.' });
+        return res.status(400).json({
+          error:
+            'TradeLocker login succeeded, but no trading accounts were found.'
+        });
       }
 
-      // Auto-select first account if only one exists
-      const initialAccount = accounts.length === 1 ? accounts[0] : null;
+      const initialAccount =
+        accounts.length === 1
+          ? accounts[0]
+          : null;
 
-      // 3. Save tokens strictly in RAM
       sessions.setSession(userId, {
         environment: envClean,
         server: srvClean,
@@ -181,18 +236,50 @@ function createTradeLockerRouter({ db, auth }) {
         selectedAccount: initialAccount
       });
 
-      // 4. Record sanitized metadata in PostgreSQL
       await db(
         `INSERT INTO tradelocker_connections (
-          user_id, environment, server, account_id, acc_num, account_name, currency, status, last_connected_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'connected', NOW(), NOW())
+          user_id,
+          environment,
+          server,
+          account_id,
+          acc_num,
+          account_name,
+          currency,
+          status,
+          last_connected_at,
+          updated_at
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          'connected',
+          NOW(),
+          NOW()
+        )
         ON CONFLICT (user_id) DO UPDATE SET
           environment = EXCLUDED.environment,
           server = EXCLUDED.server,
-          account_id = COALESCE(EXCLUDED.account_id, tradelocker_connections.account_id),
-          acc_num = COALESCE(EXCLUDED.acc_num, tradelocker_connections.acc_num),
-          account_name = COALESCE(EXCLUDED.account_name, tradelocker_connections.account_name),
-          currency = COALESCE(EXCLUDED.currency, tradelocker_connections.currency),
+          account_id = COALESCE(
+            EXCLUDED.account_id,
+            tradelocker_connections.account_id
+          ),
+          acc_num = COALESCE(
+            EXCLUDED.acc_num,
+            tradelocker_connections.acc_num
+          ),
+          account_name = COALESCE(
+            EXCLUDED.account_name,
+            tradelocker_connections.account_name
+          ),
+          currency = COALESCE(
+            EXCLUDED.currency,
+            tradelocker_connections.currency
+          ),
           status = 'connected',
           last_error = NULL,
           last_connected_at = NOW(),
@@ -201,14 +288,21 @@ function createTradeLockerRouter({ db, auth }) {
           userId,
           envClean,
           srvClean,
-          initialAccount ? initialAccount.id : null,
-          initialAccount ? initialAccount.accNum : null,
-          initialAccount ? initialAccount.accountName : null,
-          initialAccount ? initialAccount.currency : null
+          initialAccount
+            ? initialAccount.id
+            : null,
+          initialAccount
+            ? initialAccount.accNum
+            : null,
+          initialAccount
+            ? initialAccount.accountName
+            : null,
+          initialAccount
+            ? initialAccount.currency
+            : null
         ]
       );
 
-      // Return sanitized list of accounts (tokens and passwords never returned)
       return res.json({
         success: true,
         connected: true,
@@ -223,30 +317,62 @@ function createTradeLockerRouter({ db, auth }) {
         selectedAccount: initialAccount
       });
     } catch (err) {
-      console.error('[TradeLocker Connect Error]:', err.message);
+      console.error(
+        '[TradeLocker Connect Error]:',
+        err.message
+      );
+
       await db(
-        `INSERT INTO tradelocker_connections (user_id, environment, server, status, last_error, updated_at)
-         VALUES ($1, $2, $3, 'error', $4, NOW())
-         ON CONFLICT (user_id) DO UPDATE SET
-           status = 'error',
-           last_error = EXCLUDED.last_error,
-           updated_at = NOW()`,
-        [userId, envClean, srvClean, err.message]
+        `INSERT INTO tradelocker_connections (
+          user_id,
+          environment,
+          server,
+          status,
+          last_error,
+          updated_at
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          'error',
+          $4,
+          NOW()
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+          status = 'error',
+          last_error = EXCLUDED.last_error,
+          updated_at = NOW()`,
+        [
+          userId,
+          envClean,
+          srvClean,
+          err.message
+        ]
       ).catch(() => {});
 
-      return res.status(401).json({ error: err.message || 'TradeLocker authentication failed.' });
+      return res.status(401).json({
+        error:
+          err.message ||
+          'TradeLocker authentication failed.'
+      });
     }
   });
 
-  /**
-   * GET /api/tradelocker/accounts
-   * Returns accounts list from the active session
-   */
+  // ------------------------------------------------------------
+  // ACCOUNTS
+  // ------------------------------------------------------------
   router.get('/accounts', (req, res) => {
-    const session = sessions.getSession(req.user.id);
+    const session =
+      sessions.getSession(req.user.id);
+
     if (!session || !session.accessToken) {
-      return res.status(401).json({ error: 'Reconnect required.', reconnectRequired: true });
+      return res.status(401).json({
+        error: 'Reconnect required.',
+        reconnectRequired: true
+      });
     }
+
     return res.json({
       success: true,
       accounts: session.accounts.map(a => ({
@@ -259,32 +385,44 @@ function createTradeLockerRouter({ db, auth }) {
     });
   });
 
-  /**
-   * POST /api/tradelocker/select-account
-   * Validates account selection against the active session's accounts list
-   */
+  // ------------------------------------------------------------
+  // SELECT ACCOUNT
+  // ------------------------------------------------------------
   router.post('/select-account', async (req, res) => {
     const userId = req.user.id;
     const { accountId } = req.body || {};
 
     if (!accountId) {
-      return res.status(400).json({ error: 'accountId is required.' });
+      return res.status(400).json({
+        error: 'accountId is required.'
+      });
     }
 
-    const session = sessions.getSession(userId);
+    const session =
+      sessions.getSession(userId);
+
     if (!session || !session.accessToken) {
-      return res.status(401).json({ error: 'Session expired or invalid. Please reconnect.', reconnectRequired: true });
+      return res.status(401).json({
+        error:
+          'Session expired or invalid. Please reconnect.',
+        reconnectRequired: true
+      });
     }
 
-    // Strict validation: Must match one of the accounts received from TradeLocker
-    const targetAccount = session.accounts.find(a => String(a.id) === String(accountId));
+    const targetAccount =
+      session.accounts.find(
+        a => String(a.id) === String(accountId)
+      );
+
     if (!targetAccount) {
-      return res.status(403).json({ error: 'Forbidden: Selected account is not associated with this session.' });
+      return res.status(403).json({
+        error:
+          'Forbidden: Selected account is not associated with this session.'
+      });
     }
 
     session.selectedAccount = targetAccount;
 
-    // Update metadata in PostgreSQL
     await db(
       `UPDATE tradelocker_connections SET
         account_id = $1,
@@ -294,20 +432,35 @@ function createTradeLockerRouter({ db, auth }) {
         status = 'connected',
         updated_at = NOW()
        WHERE user_id = $5`,
-      [targetAccount.id, targetAccount.accNum, targetAccount.accountName, targetAccount.currency, userId]
+      [
+        targetAccount.id,
+        targetAccount.accNum,
+        targetAccount.accountName,
+        targetAccount.currency,
+        userId
+      ]
     );
 
-    // Fetch state for confirmed account
     let state = null;
-    try {
-      state = await client.getAccountState({
-        environment: session.environment,
-        accessToken: session.accessToken,
-        accountId: targetAccount.id,
-        accNum: targetAccount.accNum
-      });
-    } catch (e) {
-      console.warn('[TradeLocker State Warning]:', e.message);
+
+    if (
+      targetAccount.accNum !== null &&
+      targetAccount.accNum !== undefined &&
+      !isNaN(Number(targetAccount.accNum))
+    ) {
+      try {
+        state = await client.getAccountState({
+          environment: session.environment,
+          accessToken: session.accessToken,
+          accountId: targetAccount.id,
+          accNum: targetAccount.accNum
+        });
+      } catch (e) {
+        console.warn(
+          '[TradeLocker State Warning]:',
+          e.message
+        );
+      }
     }
 
     return res.json({
@@ -317,52 +470,91 @@ function createTradeLockerRouter({ db, auth }) {
     });
   });
 
-  /**
-   * GET /api/tradelocker/state
-   * Retrieves current balance and equity for selected account
-   */
+  // ------------------------------------------------------------
+  // STATE
+  // ------------------------------------------------------------
   router.get('/state', async (req, res) => {
     const userId = req.user.id;
-    const session = sessions.getSession(userId);
+
+    const session =
+      sessions.getSession(userId);
 
     if (!session || !session.accessToken) {
-      return res.status(401).json({ error: 'Reconnect required.', reconnectRequired: true });
+      return res.status(401).json({
+        error: 'Reconnect required.',
+        reconnectRequired: true
+      });
     }
-    if (!session.selectedAccount || !session.selectedAccount.id) {
-      return res.status(400).json({ error: 'No account currently selected. Please select an account first.' });
+
+    if (
+      !session.selectedAccount ||
+      !session.selectedAccount.id
+    ) {
+      return res.status(400).json({
+        error:
+          'No account currently selected. Please select an account first.'
+      });
+    }
+
+    if (
+      session.selectedAccount.accNum === null ||
+      session.selectedAccount.accNum === undefined ||
+      isNaN(Number(session.selectedAccount.accNum))
+    ) {
+      return res.status(400).json({
+        error:
+          'Selected account does not have a valid accNum required by TradeLocker.'
+      });
     }
 
     try {
-      const state = await client.getAccountState({
-        environment: session.environment,
-        accessToken: session.accessToken,
-        accountId: session.selectedAccount.id,
-        accNum: session.selectedAccount.accNum
-      });
+      const state =
+        await client.getAccountState({
+          environment: session.environment,
+          accessToken: session.accessToken,
+          accountId: session.selectedAccount.id,
+          accNum: session.selectedAccount.accNum
+        });
 
-      return res.json({ success: true, state });
+      return res.json({
+        success: true,
+        state
+      });
     } catch (err) {
-      return res.status(502).json({ error: err.message || 'Failed to fetch account state from TradeLocker.' });
+      return res.status(502).json({
+        error:
+          err.message ||
+          'Failed to fetch account state from TradeLocker.'
+      });
     }
   });
 
-  /**
-   * POST /api/tradelocker/disconnect
-   * Purges RAM session and updates PostgreSQL status to 'disconnected'
-   */
+  // ------------------------------------------------------------
+  // DISCONNECT
+  // ------------------------------------------------------------
   router.post('/disconnect', async (req, res) => {
     const userId = req.user.id;
+
     sessions.clearSession(userId);
 
     await db(
-      `UPDATE tradelocker_connections SET status = 'disconnected', updated_at = NOW() WHERE user_id = $1`,
+      `UPDATE tradelocker_connections
+       SET status = 'disconnected',
+           updated_at = NOW()
+       WHERE user_id = $1`,
       [userId]
     ).catch(() => {});
 
-    return res.json({ success: true, status: 'disconnected', message: 'TradeLocker disconnected.' });
+    return res.json({
+      success: true,
+      status: 'disconnected',
+      message: 'TradeLocker disconnected.'
+    });
   });
 
   return router;
 }
 
-module.exports = { createTradeLockerRouter };
+module.exports = {
+  createTradeLockerRouter
+};
