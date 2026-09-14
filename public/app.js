@@ -1,159 +1,27 @@
-let currentTrades = [];
-let editingTrade = null;
-
-const $ = id => document.getElementById(id);
-const money = n => {
-  const x = Number(n || 0);
-  return (x < 0 ? "-$" : "$") + Math.abs(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-};
-const dateFmt = d => new Date(d).toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"2-digit",minute:"2-digit"});
-const toast = msg => {
-  $("toast").textContent = msg;
-  $("toast").className = "toast";
-  clearTimeout(window.toastTimer);
-  window.toastTimer = setTimeout(() => $("toast").className = "", 2800);
-};
-async function api(url, options={}) {
-  const r = await fetch(url,{headers:{"Content-Type":"application/json"},...options});
-  const data = await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(data.error || "Request failed");
-  return data;
-}
-function showAuth(mode="login"){
-  $("authScreen").classList.remove("hidden"); $("app").classList.add("hidden");
-  $("loginForm").classList.toggle("hidden",mode!=="login");
-  $("registerForm").classList.toggle("hidden",mode!=="register");
-  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.auth===mode));
-}
-function showApp(user){
-  $("authScreen").classList.add("hidden"); $("app").classList.remove("hidden");
-  $("userName").textContent=user.name; $("userEmail").textContent=user.email; $("avatar").textContent=user.name[0].toUpperCase();
-}
-async function boot(){
-  try { const {user}=await api("/api/auth/me"); showApp(user); await loadDashboard(); }
-  catch { showAuth(); }
-}
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showAuth(b.dataset.auth));
-$("loginForm").onsubmit=async e=>{
-  e.preventDefault();
-  try { const {user}=await api("/api/auth/login",{method:"POST",body:JSON.stringify({email:$("loginEmail").value,password:$("loginPassword").value})}); showApp(user); await loadDashboard(); }
-  catch(err){toast(err.message)}
-};
-$("registerForm").onsubmit=async e=>{
-  e.preventDefault();
-  try { const {user}=await api("/api/auth/register",{method:"POST",body:JSON.stringify({name:$("regName").value,email:$("regEmail").value,password:$("regPassword").value})}); showApp(user); await loadDashboard(); }
-  catch(err){toast(err.message)}
-};
-$("logoutBtn").onclick=async()=>{await api("/api/auth/logout",{method:"POST"});showAuth()};
-
-document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));b.classList.add("active");
-  const page=b.dataset.page;
-  $("dashboardPage").classList.toggle("hidden",page!=="dashboard");
-  $("tradesPage").classList.toggle("hidden",page!=="trades");
-  $("pageTitle").textContent=page==="dashboard"?"Dashboard":"Trades";
-  if(page==="trades") loadTrades();
-});
-$("viewAllBtn").onclick=()=>document.querySelector('[data-page="trades"]').click();
-$("addTradeBtn").onclick=()=>openModal();
-$("closeModal").onclick=closeModal;
-$("cancelTrade").onclick=closeModal;
-$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
-
-function openModal(trade=null){
-  editingTrade=trade;
-  $("modalTitle").textContent=trade?"Edit Trade":"Add Trade";
-  $("tradeId").value=trade?.id||"";
-  $("account").value=trade?.account||"Main Account";
-  $("symbol").value=trade?.symbol||"";
-  $("direction").value=trade?.direction||"BUY";
-  $("tradeDate").value=trade ? new Date(trade.trade_date).toISOString().slice(0,16) : new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
-  $("entry").value=trade?.entry??"";
-  $("stopLoss").value=trade?.stop_loss??"";
-  $("takeProfit").value=trade?.take_profit??"";
-  $("exitPrice").value=trade?.exit_price??"";
-  $("quantity").value=trade?.quantity??1;
-  $("riskAmount").value=trade?.risk_amount??0;
-  $("profitLoss").value=trade?.profit_loss??0;
-  $("strategy").value=trade?.strategy||"";
-  $("session").value=trade?.session||"";
-  $("notes").value=trade?.notes||"";
-  $("modal").classList.remove("hidden");
-}
-function closeModal(){$("modal").classList.add("hidden");editingTrade=null}
-$("tradeForm").onsubmit=async e=>{
-  e.preventDefault();
-  const body={
-    account:$("account").value,symbol:$("symbol").value,direction:$("direction").value,
-    tradeDate:$("tradeDate").value,entry:$("entry").value,stopLoss:$("stopLoss").value,
-    takeProfit:$("takeProfit").value,exitPrice:$("exitPrice").value,quantity:$("quantity").value,
-    riskAmount:$("riskAmount").value,profitLoss:$("profitLoss").value,strategy:$("strategy").value,
-    session:$("session").value,notes:$("notes").value
-  };
-  try{
-    if(editingTrade) await api("/api/trades/"+editingTrade.id,{method:"PUT",body:JSON.stringify(body)});
-    else await api("/api/trades",{method:"POST",body:JSON.stringify(body)});
-    closeModal();toast(editingTrade?"Trade updated":"Trade saved");await loadDashboard();if(!$("tradesPage").classList.contains("hidden"))await loadTrades();
-  }catch(err){toast(err.message)}
-};
-
-async function loadDashboard(){
-  try{
-    const data=await api("/api/dashboard"),s=data.stats;
-    $("statPnl").textContent=money(s.pnl);$("statPnl").className=s.pnl>=0?"pos":"neg";
-    $("statWin").textContent=s.winRate.toFixed(1)+"%";$("statWinSub").textContent=`${s.wins} wins / ${s.total} trades`;
-    $("statPf").textContent=Number.isFinite(s.profitFactor)?s.profitFactor.toFixed(2):"∞";
-    $("statTrades").textContent=s.total;$("statWL").textContent=`${s.wins}W / ${s.losses}L`;
-    $("avgWin").textContent=money(s.avgWin);$("avgLoss").textContent=money(s.avgLoss);
-    $("totalRisk").textContent=money(s.totalRisk);$("wins").textContent=s.wins;$("losses").textContent=s.losses;
-    renderRecent(data.recent);drawChart(data.curve);
-  }catch(err){toast(err.message)}
-}
-function renderRecent(trades){
-  $("recentBody").innerHTML=trades.map(t=>`<tr>
-    <td>${dateFmt(t.trade_date)}</td><td><b>${t.symbol}</b></td>
-    <td class="${t.direction==="BUY"?"side-buy":"side-sell"}">${t.direction}</td>
-    <td>${t.entry}</td><td>${t.exit_price??"—"}</td>
-    <td class="${Number(t.profit_loss)>=0?"pos":"neg"}">${money(t.profit_loss)}</td>
-    <td>${t.strategy||"—"}</td></tr>`).join("");
-  $("recentEmpty").classList.toggle("hidden",trades.length>0);
-}
-function drawChart(rows){
-  const c=$("equityChart"),ctx=c.getContext("2d"),wrap=c.parentElement;
-  c.width=wrap.clientWidth*devicePixelRatio;c.height=wrap.clientHeight*devicePixelRatio;
-  ctx.scale(devicePixelRatio,devicePixelRatio);const w=wrap.clientWidth,h=wrap.clientHeight;
-  ctx.clearRect(0,0,w,h);
-  if(!rows.length){$("emptyChart").classList.remove("hidden");return}
-  $("emptyChart").classList.add("hidden");
-  let sum=0,vals=rows.map(r=>sum+=Number(r.profit_loss));
-  const min=Math.min(0,...vals),max=Math.max(0,...vals),range=max-min||1;
-  ctx.strokeStyle="#27303c";ctx.lineWidth=1;
-  for(let i=0;i<5;i++){let y=18+i*(h-36)/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
-  ctx.beginPath();
-  vals.forEach((v,i)=>{const x=vals.length===1?w/2:(i/(vals.length-1))*w;const y=18+(max-v)/range*(h-36);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
-  ctx.strokeStyle="#d8ff3e";ctx.lineWidth=2.5;ctx.stroke();
-}
-async function loadTrades(){
-  try{
-    const p=new URLSearchParams();
-    if($("searchSymbol").value)p.set("symbol",$("searchSymbol").value);
-    if($("filterDirection").value)p.set("direction",$("filterDirection").value);
-    if($("filterResult").value)p.set("result",$("filterResult").value);
-    const {trades}=await api("/api/trades?"+p.toString());currentTrades=trades;
-    $("tradesBody").innerHTML=trades.map((t,i)=>`<tr>
-      <td>${dateFmt(t.trade_date)}</td><td>${t.account}</td><td><b>${t.symbol}</b></td>
-      <td class="${t.direction==="BUY"?"side-buy":"side-sell"}">${t.direction}</td><td>${t.entry}</td><td>${t.exit_price??"—"}</td>
-      <td>${t.quantity}</td><td>${money(t.risk_amount)}</td><td class="${Number(t.profit_loss)>=0?"pos":"neg"}">${money(t.profit_loss)}</td>
-      <td>${t.strategy||"—"}</td><td class="actions"><button onclick="editTrade(${i})">Edit</button><button onclick="deleteTrade(${t.id})">Delete</button></td></tr>`).join("");
-    $("tradesEmpty").classList.toggle("hidden",trades.length>0);
-  }catch(err){toast(err.message)}
-}
-window.editTrade=i=>openModal(currentTrades[i]);
-window.deleteTrade=async id=>{
-  if(!confirm("Delete this trade? This cannot be undone."))return;
-  try{await api("/api/trades/"+id,{method:"DELETE"});toast("Trade deleted");await loadTrades();await loadDashboard()}catch(err){toast(err.message)}
-};
-$("filterBtn").onclick=loadTrades;
-$("clearFilterBtn").onclick=()=>{$("searchSymbol").value="";$("filterDirection").value="";$("filterResult").value="";loadTrades()};
-window.addEventListener("resize",()=>loadDashboard());
-boot();
+const $=x=>document.querySelector(x),$$=x=>[...document.querySelectorAll(x)],M=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(Number(n||0)),C=n=>Number(n||0)>=0?"positive":"negative",state={user:null,accounts:[],trades:[],month:new Date(),edit:null};
+async function api(u,o={}){let r=await fetch(u,{headers:{"Content-Type":"application/json"},...o}),d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||"Request failed");return d}
+function page(p){$$(".page").forEach(x=>x.classList.add("hide"));$("#"+p).classList.remove("hide");$("#title").textContent=p[0].toUpperCase()+p.slice(1);if(p==="dashboard")dashboard();if(p==="trades")trades();if(p==="calendar")calendar();if(p==="analytics")analytics();if(p==="accounts")accounts()}
+$$("nav button").forEach(b=>b.onclick=()=>page(b.dataset.p));$("#export").onclick=()=>location="/api/export.csv";$("#logout").onclick=async()=>{await api("/api/auth/logout",{method:"POST"});location.reload()};
+let register=false;$("#switch").onclick=()=>{register=!register;$("#auth .auth").classList.toggle("register",register);$("#af button").textContent=register?"Create account":"Login";$("#switch").textContent=register?"Back to login":"Create account"};
+$("#af").onsubmit=async e=>{e.preventDefault();try{let d=await api("/api/auth/"+(register?"register":"login"),{method:"POST",body:JSON.stringify({name:$("#an").value,email:$("#ae").value,password:$("#ap").value})});state.user=d.user;boot()}catch(e){alert(e.message)}};
+async function boot(){$("#auth").classList.add("hide");$("#app").classList.remove("hide");await loadAccounts();dashboard()}
+async function loadAccounts(){let d=await api("/api/accounts");state.accounts=d.accounts;$("#ta").innerHTML=state.accounts.map(a=>`<option>${a.name}</option>`).join("")}
+function st(a,b,c=""){return `<div class="card stat"><small>${a}</small><b class="${c}">${b}</b></div>`}
+async function dashboard(){let d=await api("/api/analytics"),s=d.summary;$("#stats").innerHTML=[st("Net P&L",M(s.pnl),C(s.pnl)),st("Win Rate",s.winRate.toFixed(1)+"%"),st("Profit Factor",isFinite(s.profitFactor)?s.profitFactor.toFixed(2):"∞"),st("Expectancy",M(s.expectancy),C(s.expectancy)),st("Max Drawdown",M(s.maxDrawdown),"negative")].join("");$("#perf").innerHTML=[["Trades",s.total],["Wins",s.wins],["Losses",s.losses],["Avg Win",M(s.avgWin)],["Avg Loss",M(s.avgLoss)],["Avg R",s.avgR.toFixed(2)+"R"],["Avg Risk",s.avgRisk.toFixed(2)+"%"],["Best Streak",s.bestWinStreak],["Worst Streak",s.bestLossStreak]].map(x=>`<p><span>${x[0]}</span><b>${x[1]}</b></p>`).join("");draw(d.byDay);let t=await api("/api/trades");$("#recent").innerHTML=table(t.trades.slice(0,8),false)}
+function draw(days){let c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth,h=260;c.width=w*devicePixelRatio;c.height=h*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio);let v=0,a=days.map(x=>v+=Number(x.pnl));if(!a.length)return;let mi=Math.min(0,...a),ma=Math.max(0,...a),rg=ma-mi||1;ctx.beginPath();a.forEach((x,i)=>{let X=10+i*(w-20)/Math.max(1,a.length-1),Y=15+(ma-x)/rg*(h-35);i?ctx.lineTo(X,Y):ctx.moveTo(X,Y)});ctx.strokeStyle="#d8ff3e";ctx.lineWidth=2;ctx.stroke()}
+function table(t,full=true){if(!t.length)return"<p>No trades yet.</p>";return`<table><tr><th>Date</th><th>Symbol</th><th>Side</th><th>Account</th><th>P&L</th><th>R</th>${full?"<th>Strategy</th><th></th>":""}</tr>${t.map(x=>`<tr><td>${new Date(x.trade_date).toLocaleDateString()}</td><td><b>${x.symbol}</b></td><td>${x.direction}</td><td>${x.account}</td><td class="${C(x.profit_loss)}">${M(x.profit_loss)}</td><td>${Number(x.actual_r||0).toFixed(2)}R</td>${full?`<td>${x.strategy||"—"}</td><td><button onclick="editTrade(${x.id})">Edit</button> <button onclick="delTrade(${x.id})">Delete</button></td>`:""}</tr>`).join("")}</table>`}
+async function trades(){let q=new URLSearchParams();if($("#fs").value)q.set("symbol",$("#fs").value);if($("#fd").value)q.set("direction",$("#fd").value);if($("#fr").value)q.set("result",$("#fr").value);let d=await api("/api/trades?"+q);state.trades=d.trades;$("#tradeTable").innerHTML=table(d.trades)}
+["fs","fd","fr"].forEach(x=>$("#"+x).addEventListener("input",trades));$("#cf").onclick=()=>{["fs","fd","fr"].forEach(x=>$("#"+x).value="");trades()};
+function localNow(){let d=new Date(Date.now()-new Date().getTimezoneOffset()*60000);return d.toISOString().slice(0,16)}
+function openModal(t){state.edit=t||null;$("#mh").textContent=t?"Edit Trade":"Add Trade";$("#tf").reset();$("#tt").value=localNow();if(t){let map={tid:"id",ta:"account",ts:"symbol",td:"direction",te:"entry",sl:"stop_loss",tp:"take_profit",ex:"exit_price",qty:"quantity",risk:"risk_amount",riskp:"risk_percent",pl:"profit_loss",prr:"planned_rr",ar:"actual_r",strategy:"strategy",setup:"setup",session:"session",mc:"market_condition",conf:"confidence",eb:"emotion_before",ea:"emotion_after",mist:"mistakes",er:"entry_reason",xr:"exit_reason",notes:"notes"};Object.entries(map).forEach(([a,b])=>$("#"+a).value=t[b]??"");$("#tt").value=new Date(t.trade_date).toISOString().slice(0,16)}$("#modal").classList.remove("hide")}
+$("#add").onclick=()=>openModal();$("#close").onclick=()=>$("#modal").classList.add("hide");
+function fileData(f){return new Promise((r,j)=>{let x=new FileReader;x.onload=()=>r(x.result);x.onerror=j;x.readAsDataURL(f)})}
+$("#save").onclick=async()=>{try{let img=state.edit?.screenshot_data||"",f=$("#shot").files[0];if(f){if(f.size>3e6)throw Error("Screenshot must be under 3MB");img=await fileData(f)}let b={account:$("#ta").value,symbol:$("#ts").value,direction:$("#td").value,tradeDate:$("#tt").value,entry:$("#te").value,stopLoss:$("#sl").value,takeProfit:$("#tp").value,exitPrice:$("#ex").value,quantity:$("#qty").value,riskAmount:$("#risk").value,riskPercent:$("#riskp").value,profitLoss:$("#pl").value,plannedRr:$("#prr").value,actualR:$("#ar").value,strategy:$("#strategy").value,setup:$("#setup").value,session:$("#session").value,marketCondition:$("#mc").value,confidence:$("#conf").value,emotionBefore:$("#eb").value,emotionAfter:$("#ea").value,mistakes:$("#mist").value,entryReason:$("#er").value,exitReason:$("#xr").value,notes:$("#notes").value,screenshotData:img};await api(state.edit?"/api/trades/"+state.edit.id:"/api/trades",{method:state.edit?"PUT":"POST",body:JSON.stringify(b)});$("#modal").classList.add("hide");trades();dashboard()}catch(e){alert(e.message)}}
+window.editTrade=async id=>{let t=state.trades.find(x=>x.id===id);if(!t)t=(await api("/api/trades")).trades.find(x=>x.id===id);openModal(t)};window.delTrade=async id=>{if(confirm("Delete trade?")){await api("/api/trades/"+id,{method:"DELETE"});trades();dashboard()}};
+async function calendar(){let y=state.month.getFullYear(),m=String(state.month.getMonth()+1).padStart(2,"0"),d=await api(`/api/calendar?month=${y}-${m}`),map=Object.fromEntries(d.days.map(x=>[x.day.slice(0,10),x])),first=new Date(y,state.month.getMonth(),1),days=new Date(y,state.month.getMonth()+1,0).getDate(),off=(first.getDay()+6)%7;$("#mt").textContent=state.month.toLocaleString("en",{month:"long",year:"numeric"});let h="";for(let i=0;i<off;i++)h+='<div class="day"></div>';for(let i=1;i<=days;i++){let k=`${y}-${m}-${String(i).padStart(2,"0")}`,x=map[k],p=x?Number(x.pnl):0;h+=`<div class="day ${p>0?"win":p<0?"loss":""}"><b>${i}</b>${x?`<p class="${C(p)}">${M(p)}<br>${x.trades} trades</p>`:""}</div>`}$("#gridcal").innerHTML=h}
+$("#prev").onclick=()=>{state.month.setMonth(state.month.getMonth()-1);calendar()};$("#next").onclick=()=>{state.month.setMonth(state.month.getMonth()+1);calendar()};
+function bars(a,key){if(!a.length)return"<p>No data.</p>";let mx=Math.max(...a.map(x=>Math.abs(Number(x.pnl))),1);return a.map(x=>`<div class="barrow"><b>${x[key]}</b><div class="bar"><i style="width:${Math.min(100,Math.abs(Number(x.pnl))/mx*100)}%"></i></div><span class="${C(x.pnl)}">${M(x.pnl)}</span></div>`).join("")}
+async function analytics(){let d=await api("/api/analytics"),s=d.summary;$("#astats").innerHTML=[st("Trades",s.total),st("P&L",M(s.pnl),C(s.pnl)),st("Win Rate",s.winRate.toFixed(1)+"%"),st("Avg R",s.avgR.toFixed(2)+"R"),st("Expectancy",M(s.expectancy),C(s.expectancy)),st("Drawdown",M(s.maxDrawdown),"negative")].join("");$("#sym").innerHTML=bars(d.bySymbol,"symbol");$("#strat").innerHTML=bars(d.byStrategy,"strategy");$("#sess").innerHTML=bars(d.bySession,"session");$("#dir").innerHTML=bars(d.byDirection,"direction")}
+$("#newacc").onclick=async()=>{let n=prompt("Account name");if(!n)return;let b=prompt("Starting balance","10000");try{await api("/api/accounts",{method:"POST",body:JSON.stringify({name:n,startingBalance:b,currency:"USD"})});await loadAccounts();accounts()}catch(e){alert(e.message)}};
+async function accounts(){let d=await api("/api/accounts");$("#accountsList").innerHTML=d.accounts.map(a=>`<div class="row"><div><b>${a.name}</b><small>Start ${M(a.starting_balance)} · P&L <span class="${C(a.pnl)}">${M(a.pnl)}</span></small></div></div>`).join("")}
+(async()=>{try{let d=await api("/api/auth/me");state.user=d.user;boot()}catch{}})();
