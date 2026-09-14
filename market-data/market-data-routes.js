@@ -200,6 +200,37 @@ function createMarketDataRouter({ db, auth }) {
   // ============================================================
   // POST /api/market-data/candles/import
   // ============================================================
+  router.get("/summary", auth, async (req, res) => {
+    try {
+      const result = await db(`
+        SELECT
+          mc.symbol,
+          mc.timeframe,
+          COUNT(*)::INTEGER AS candle_count,
+          MIN(mc.candle_time) AS first_candle,
+          MAX(mc.candle_time) AS last_candle,
+          MIN(mc.open) AS lowest_open,
+          MAX(mc.high) AS highest_high,
+          MAX(mc.created_at) AS last_imported_at,
+          COUNT(DISTINCT mc.source)::INTEGER AS source_count
+        FROM market_candles mc
+        GROUP BY mc.symbol, mc.timeframe
+        ORDER BY mc.symbol, mc.timeframe
+      `);
+
+      res.json({
+        ok: true,
+        summary: result.rows
+      });
+    } catch (error) {
+      console.error("Market data summary error:", error);
+
+      res.status(500).json({
+        ok: false,
+        error: "Could not load market data summary."
+      });
+    }
+  });
 
   router.post(
     "/candles/import",
