@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GhostTrader — Trading Journal</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="toast"></div>
+
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="brand-mark">G</div>
+      <h1>GHOST<span>TRADER</span></h1>
+      <p class="muted">Track. Review. Improve.</p>
+
+      <div class="auth-tabs">
+        <button class="tab active" data-auth="login">Login</button>
+        <button class="tab" data-auth="register">Create account</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <label>Email<input type="email" id="loginEmail" required autocomplete="email"></label>
+        <label>Password<input type="password" id="loginPassword" required autocomplete="current-password"></label>
+        <button class="primary full" type="submit">Enter Journal</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <label>Name<input type="text" id="regName" required autocomplete="name"></label>
+        <label>Email<input type="email" id="regEmail" required autocomplete="email"></label>
+        <label>Password<input type="password" id="regPassword" minlength="6" required autocomplete="new-password"></label>
+        <button class="primary full" type="submit">Create Journal</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="logo"><div class="logo-g">G</div><div>GHOST<span>TRADER</span></div></div>
+      <nav>
+        <button class="nav active" data-page="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav" data-page="trades">▤ <span>Trades</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="user-mini"><div class="avatar" id="avatar">G</div><div><strong id="userName">Trader</strong><small id="userEmail"></small></div></div>
+        <button id="logoutBtn" class="logout">↪ Logout</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">TRADING JOURNAL</div>
+          <h2 id="pageTitle">Dashboard</h2>
+        </div>
+        <button id="addTradeBtn" class="primary">＋ Add Trade</button>
+      </header>
+
+      <section id="dashboardPage" class="page">
+        <div class="stat-grid">
+          <div class="stat-card"><span>Total P&L</span><strong id="statPnl">$0.00</strong><small id="statPnlSub">All trades</small></div>
+          <div class="stat-card"><span>Win Rate</span><strong id="statWin">0%</strong><small id="statWinSub">0 wins / 0 trades</small></div>
+          <div class="stat-card"><span>Profit Factor</span><strong id="statPf">0.00</strong><small>Gross profit / loss</small></div>
+          <div class="stat-card"><span>Total Trades</span><strong id="statTrades">0</strong><small id="statWL">0W / 0L</small></div>
+        </div>
+
+        <div class="grid-two">
+          <div class="panel">
+            <div class="panel-head"><div><h3>Equity Curve</h3><small>Running cumulative P&L</small></div></div>
+            <div class="chart-wrap"><canvas id="equityChart"></canvas><div id="emptyChart" class="empty">Add your first trade to see your equity curve.</div></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h3>Performance</h3><small>Quick breakdown</small></div></div>
+            <div class="performance">
+              <div><span>Average winner</span><strong id="avgWin">$0.00</strong></div>
+              <div><span>Average loser</span><strong id="avgLoss">$0.00</strong></div>
+              <div><span>Total risk logged</span><strong id="totalRisk">$0.00</strong></div>
+              <div><span>Winning trades</span><strong id="wins">0</strong></div>
+              <div><span>Losing trades</span><strong id="losses">0</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h3>Recent Trades</h3><small>Your latest journal entries</small></div><button class="ghost" id="viewAllBtn">View all</button></div>
+          <div class="table-scroll"><table><thead><tr><th>Date</th><th>Symbol</th><th>Side</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Strategy</th></tr></thead><tbody id="recentBody"></tbody></table></div>
+          <div id="recentEmpty" class="empty">No trades yet.</div>
+        </div>
+      </section>
+
+      <section id="tradesPage" class="page hidden">
+        <div class="panel filters">
+          <input id="searchSymbol" placeholder="Search symbol...">
+          <select id="filterDirection"><option value="">All sides</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+          <select id="filterResult"><option value="">All results</option><option value="win">Winners</option><option value="loss">Losers</option></select>
+          <button class="secondary" id="filterBtn">Filter</button>
+          <button class="ghost" id="clearFilterBtn">Clear</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>Trade History</h3><small>Up to 500 recent trades</small></div></div>
+          <div class="table-scroll"><table><thead><tr><th>Date</th><th>Account</th><th>Symbol</th><th>Side</th><th>Entry</th><th>Exit</th><th>Qty</th><th>Risk</th><th>P&L</th><th>Strategy</th><th></th></tr></thead><tbody id="tradesBody"></tbody></table></div>
+          <div id="tradesEmpty" class="empty">No matching trades.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head"><div><div class="eyebrow">JOURNAL ENTRY</div><h3 id="modalTitle">Add Trade</h3></div><button class="close" id="closeModal">×</button></div>
+      <form id="tradeForm">
+        <input type="hidden" id="tradeId">
+        <div class="form-grid">
+          <label>Account<input id="account" value="Main Account"></label>
+          <label>Symbol<input id="symbol" placeholder="XAUUSD" required></label>
+          <label>Direction<select id="direction"><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
+          <label>Trade date<input type="datetime-local" id="tradeDate" required></label>
+          <label>Entry<input type="number" step="any" id="entry" required></label>
+          <label>Stop Loss<input type="number" step="any" id="stopLoss"></label>
+          <label>Take Profit<input type="number" step="any" id="takeProfit"></label>
+          <label>Exit Price<input type="number" step="any" id="exitPrice"></label>
+          <label>Quantity / Lots<input type="number" step="any" id="quantity" value="1"></label>
+          <label>Risk Amount ($)<input type="number" step="0.01" id="riskAmount" value="0"></label>
+          <label>Profit / Loss ($)<input type="number" step="0.01" id="profitLoss" value="0" required></label>
+          <label>Strategy<input id="strategy" placeholder="Breakout"></label>
+          <label>Session<select id="session"><option value="">Select</option><option>Asia</option><option>London</option><option>New York</option><option>London / NY</option></select></label>
+        </div>
+        <label>Notes<textarea id="notes" rows="4" placeholder="Why did you take the trade? What happened?"></textarea></label>
+        <div class="modal-actions"><button type="button" class="secondary" id="cancelTrade">Cancel</button><button class="primary" type="submit">Save Trade</button></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
