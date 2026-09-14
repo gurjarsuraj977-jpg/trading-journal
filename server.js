@@ -133,6 +133,29 @@ async function init(){
  CREATE TABLE IF NOT EXISTS replay_trades(id SERIAL PRIMARY KEY,session_id INTEGER REFERENCES replay_sessions(id) ON DELETE CASCADE,symbol VARCHAR(30),direction VARCHAR(10),entry NUMERIC(20,8),stop_loss NUMERIC(20,8),take_profit NUMERIC(20,8),exit_price NUMERIC(20,8),quantity NUMERIC(20,8) DEFAULT 1,profit_loss NUMERIC(20,2) DEFAULT 0,trade_date TIMESTAMPTZ DEFAULT NOW(),notes TEXT);
  CREATE TABLE IF NOT EXISTS backtests(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(120) NOT NULL,symbol VARCHAR(30),target_r NUMERIC(10,4) DEFAULT 2,stop_r NUMERIC(10,4) DEFAULT 1,created_at TIMESTAMPTZ DEFAULT NOW());`);
  await db(`INSERT INTO accounts(user_id,name) SELECT id,'Main Account' FROM users u WHERE NOT EXISTS(SELECT 1 FROM accounts a WHERE a.user_id=u.id AND a.name='Main Account')`);
+ await db(`
+  CREATE TABLE IF NOT EXISTS tradelocker_connections (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    environment VARCHAR(16) NOT NULL,
+    server VARCHAR(128) NOT NULL,
+    account_id VARCHAR(64),
+    acc_num INTEGER,
+    account_name VARCHAR(128),
+    currency VARCHAR(16),
+    status VARCHAR(32),
+    last_error TEXT,
+    last_connected_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uq_tradelocker_connections_user UNIQUE (user_id)
+  )
+`);
+
+await db(`
+  CREATE INDEX IF NOT EXISTS idx_tradelocker_connections_user_id
+  ON tradelocker_connections(user_id)
+`);
 }
 function token(u){return jwt.sign({id:u.id,name:u.name,email:u.email},SECRET,{expiresIn:"7d"})}
 const setCookie=(res,t)=>res.cookie("gt_token",t,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:604800000});
