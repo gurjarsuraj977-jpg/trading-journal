@@ -5,7 +5,7 @@ Replace the files in the existing `trading-journal` GitHub repository. Keep the 
 Features: accounts, R-multiples, risk %, setup/reason/emotions/mistakes/confidence, screenshots, calendar, analytics, CSV export.
 
 
-## V2.3 reliability fixes
+## V3.0 reliability fixes
 - Fixed trade creation SQL parameter mismatch that prevented new trades from saving.
 - Added account-name/currency validation and duplicate-account handling.
 - Added proper delete error handling.
