@@ -756,28 +756,38 @@ function formatDay(v){
 }
 
 function table(t,full=true){
-  if(!t.length)
-    return'<p style="color:#98a2af">No trades found.</p>';
+  if(!t.length)return'<p style="color:#98a2af">No trades found.</p>';
 
-  return`
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Symbol</th>
-            <th>Side</th>
-            <th>Account</th>
-            <th>P&L</th>
-            <th>R</th>
-            ${
-              full?
-              '<th>Strategy</th><th>Actions</th>':
-              ''
-            }
-          </tr>
-        </thead>
-
+  return`<div class="tablewrap"><table><thead><tr>
+    <th>Date</th>
+    <th>Symbol</th>
+    <th>Side</th>
+    <th>Account</th>
+    <th>Risk</th>
+    <th>P&L</th>
+    <th>R</th>
+    ${full?'<th>Strategy</th><th>Actions</th>':''}
+  </tr></thead><tbody>${
+    t.map(x=>`
+      <tr>
+        <td>${E(formatDay(x.trade_date))}</td>
+        <td><b>${E(x.symbol)}</b></td>
+        <td><span class="side-pill">${E(x.direction)}</span></td>
+        <td>${E(x.account)}</td>
+        <td><b>${M(x.risk_amount)}</b></td>
+        <td class="${C(x.profit_loss)}"><b>${M(x.profit_loss)}</b></td>
+        <td>${Number(x.actual_r||0).toFixed(2)}R</td>
+        ${full?`
+          <td>${E(x.strategy||'—')}</td>
+          <td>
+            <button class="secondary" type="button" onclick="editTrade(${Number(x.id)})">Edit</button>
+            <button class="secondary" type="button" onclick="delTrade(${Number(x.id)})">Delete</button>
+          </td>
+        `:''}
+      </tr>
+    `).join('')
+  }</tbody></table></div>`
+}
         <tbody>
           ${t.map(x=>`
             <tr>
