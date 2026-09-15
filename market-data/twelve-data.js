@@ -213,10 +213,77 @@ async function fetchLatestCandles({
     outputSize: limit
   });
 }
+async function fetchLatestPrice(symbol) {
+  const apiKey = getApiKey();
 
+  const normalizedSymbol = normalizeSymbol(symbol);
+
+  if (!normalizedSymbol) {
+    throw new Error("Symbol is required.");
+  }
+
+  const params = new URLSearchParams({
+    symbol: providerSymbol(normalizedSymbol),
+    apikey: apiKey
+  });
+
+  const response = await fetch(
+    `https://api.twelvedata.com/price?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "GhostTrader/8.2"
+      }
+    }
+  );
+
+  const text = await response.text();
+
+  let data;
+
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Twelve Data returned invalid JSON. HTTP ${response.status}`
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      data?.code ||
+      `Twelve Data HTTP ${response.status}`
+    );
+  }
+
+  if (data.status === "error") {
+    throw new Error(
+      data.message ||
+      data.code ||
+      "Twelve Data returned an API error."
+    );
+  }
+
+  const price = Number(data.price);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error(
+      `Twelve Data returned an invalid price for ${normalizedSymbol}.`
+    );
+  }
+
+  return {
+    symbol: normalizedSymbol,
+    provider_symbol: providerSymbol(normalizedSymbol),
+    price
+  };
+}
 module.exports = {
   fetchTimeSeries,
   fetchLatestCandles,
+  fetchLatestPrice,
   normalizeSymbol,
   normalizeTimeframe,
   providerSymbol,
