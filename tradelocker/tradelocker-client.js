@@ -280,40 +280,64 @@ class TradeLockerClient {
      *
      * NEVER logs accessToken or refreshToken.
      */
-    const safeData = {
-      status: response.status,
+const safeData = {
+  status: response.status,
 
-      contentType,
+  contentType,
 
-      keys:
-        data &&
-        typeof data === 'object'
-          ? Object.keys(data)
-          : [],
+  keys:
+    data &&
+    typeof data === 'object'
+      ? Object.keys(data)
+      : [],
 
-      hasAccessToken:
-        Boolean(
-          data &&
-          data.accessToken
-        ),
+  dType:
+    data &&
+    data.d !== undefined
+      ? Array.isArray(data.d)
+        ? 'array'
+        : typeof data.d
+      : 'missing',
 
-      hasRefreshToken:
-        Boolean(
-          data &&
-          data.refreshToken
-        ),
+  dKeys:
+    data &&
+    data.d &&
+    typeof data.d === 'object' &&
+    !Array.isArray(data.d)
+      ? Object.keys(data.d)
+      : [],
 
-      expireDate:
-        data &&
-        data.expireDate
-          ? data.expireDate
-          : null
-    };
+  dLength:
+    Array.isArray(data?.d)
+      ? data.d.length
+      : null,
 
-    console.log(
-      '[TRADELOCKER STATE RESPONSE]',
-      safeData
-    );
+  sType:
+    data &&
+    data.s !== undefined
+      ? Array.isArray(data.s)
+        ? 'array'
+        : typeof data.s
+      : 'missing',
+
+  sKeys:
+    data &&
+    data.s &&
+    typeof data.s === 'object' &&
+    !Array.isArray(data.s)
+      ? Object.keys(data.s)
+      : [],
+
+  sLength:
+    Array.isArray(data?.s)
+      ? data.s.length
+      : null
+};
+
+console.log(
+  '[TRADELOCKER STATE RESPONSE]',
+  safeData
+);
 
 
     if (!response.ok) {
