@@ -1280,6 +1280,72 @@ trades.push({
     });
   }
 });
+  router.post('/sync', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    let session = sessions.getSession(userId);
+
+    if (!session) {
+      await sessions.restoreSession(userId);
+      session = sessions.getSession(userId);
+    }
+
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'TradeLocker session is not connected.'
+      });
+    }
+
+    /*
+     * SAFETY:
+     * This first version is intentionally DRY-RUN only.
+     * It reads sync-preview data but does NOT insert anything
+     * into the trades table.
+     */
+if (
+  !session.selectedAccount ||
+  !session.selectedAccount.id ||
+  session.selectedAccount.accNum === undefined ||
+  session.selectedAccount.accNum === null
+) {
+  return res.status(400).json({
+    success: false,
+    error: 'No TradeLocker account selected'
+  });
+}
+const previewResponse = await client.getOrdersHistory({
+  environment: session.environment,
+  accessToken: session.accessToken,
+  accountId: session.selectedAccount.id,
+  accNum: session.selectedAccount.accNum
+});
+
+    const rows =
+      previewResponse &&
+      previewResponse.d &&
+      Array.isArray(previewResponse.d.ordersHistory)
+        ? previewResponse.d.ordersHistory
+        : [];
+
+    res.json({
+      success: true,
+      dryRun: true,
+      historyRows: rows.length,
+      message:
+        'TradeLocker sync dry-run reached successfully. No trades were inserted.'
+    });
+
+  } catch (error) {
+    console.error('[TradeLocker Sync Error]', error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'TradeLocker sync failed.'
+    });
+  }
+});
   // ------------------------------------------------------------
   // DISCONNECT
   // ------------------------------------------------------------
