@@ -12,13 +12,8 @@ const TL_ENDPOINTS = {
 class TradeLockerClient {
 
   getBaseUrl(environment) {
-    const env =
-      (environment || '')
-        .toLowerCase()
-        .trim();
-
-    const url =
-      TL_ENDPOINTS[env];
+    const env = (environment || '').toLowerCase().trim();
+    const url = TL_ENDPOINTS[env];
 
     if (!url) {
       throw new Error(
@@ -36,32 +31,26 @@ class TradeLockerClient {
     email,
     password
   }) {
-    const baseUrl =
-      this.getBaseUrl(environment);
+    const baseUrl = this.getBaseUrl(environment);
 
-    const response =
-      await fetch(
-        `${baseUrl}/auth/jwt/token`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-            'Accept':
-              'application/json'
-          },
-          body: JSON.stringify({
-            email,
-            password,
-            server
-          })
-        }
-      );
+    const response = await fetch(
+      `${baseUrl}/auth/jwt/token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          server
+        })
+      }
+    );
 
     const data =
-      await response
-        .json()
-        .catch(() => ({}));
+      await response.json().catch(() => ({}));
 
     if (!response.ok) {
       const msg =
@@ -79,11 +68,8 @@ class TradeLockerClient {
     }
 
     return {
-      accessToken:
-        data.accessToken,
-
-      refreshToken:
-        data.refreshToken || null
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken || null
     };
   }
 
@@ -101,27 +87,22 @@ class TradeLockerClient {
     const baseUrl =
       this.getBaseUrl(environment);
 
-    const response =
-      await fetch(
-        `${baseUrl}/auth/jwt/refresh`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-            'Accept':
-              'application/json'
-          },
-          body: JSON.stringify({
-            refreshToken
-          })
-        }
-      );
+    const response = await fetch(
+      `${baseUrl}/auth/jwt/refresh`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          refreshToken
+        })
+      }
+    );
 
     const data =
-      await response
-        .json()
-        .catch(() => ({}));
+      await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(
@@ -131,12 +112,9 @@ class TradeLockerClient {
     }
 
     return {
-      accessToken:
-        data.accessToken,
-
+      accessToken: data.accessToken,
       refreshToken:
-        data.refreshToken ||
-        refreshToken
+        data.refreshToken || refreshToken
     };
   }
 
@@ -148,24 +126,21 @@ class TradeLockerClient {
     const baseUrl =
       this.getBaseUrl(environment);
 
-    const response =
-      await fetch(
-        `${baseUrl}/auth/jwt/all-accounts`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization':
-              `Bearer ${accessToken}`,
-            'Accept':
-              'application/json'
-          }
+    const response = await fetch(
+      `${baseUrl}/auth/jwt/all-accounts`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization':
+            `Bearer ${accessToken}`,
+          'Accept':
+            'application/json'
         }
-      );
+      }
+    );
 
     const data =
-      await response
-        .json()
-        .catch(() => ({}));
+      await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(
@@ -220,12 +195,10 @@ class TradeLockerClient {
             'TradeLocker Account',
 
           currency:
-            acc.currency ||
-            'USD',
+            acc.currency || 'USD',
 
           status:
-            acc.status ||
-            'Active'
+            acc.status || 'Active'
         };
       })
       .filter(
@@ -278,19 +251,15 @@ class TradeLockerClient {
 
 
     /*
-     * --------------------------------------------------
-     * GET ACCOUNT STATE
-     * --------------------------------------------------
+     * Get account state.
      */
-
-    const response =
-      await fetch(
-        url,
-        {
-          method: 'GET',
-          headers
-        }
-      );
+    const response = await fetch(
+      url,
+      {
+        method: 'GET',
+        headers
+      }
+    );
 
 
     const text =
@@ -336,12 +305,12 @@ class TradeLockerClient {
 
 
     /*
-     * TradeLocker returns account state as:
+     * TradeLocker returns:
      *
      * data.d.accountDetailsData
      *
-     * The array order is defined by the
-     * accountDetailsConfig.columns response.
+     * The array order is defined by
+     * accountDetailsConfig.columns.
      *
      * Confirmed mapping:
      *
@@ -357,9 +326,7 @@ class TradeLockerClient {
 
 
     if (
-      !Array.isArray(
-        accountDetailsData
-      )
+      !Array.isArray(accountDetailsData)
     ) {
       return {
         balance: null,
@@ -372,39 +339,23 @@ class TradeLockerClient {
 
 
     /*
-     * --------------------------------------------------
-     * MAP TRADELOCKER STATE
-     * --------------------------------------------------
+     * Map TradeLocker account state.
      */
 
     const balance =
-      Number(
-        accountDetailsData[0]
-      ) || 0;
-
+      Number(accountDetailsData[0]) || 0;
 
     const projectedBalance =
-      Number(
-        accountDetailsData[1]
-      ) || 0;
-
+      Number(accountDetailsData[1]) || 0;
 
     const availableFunds =
-      Number(
-        accountDetailsData[2]
-      ) || 0;
-
+      Number(accountDetailsData[2]) || 0;
 
     const initialMarginReq =
-      Number(
-        accountDetailsData[9]
-      ) || 0;
-
+      Number(accountDetailsData[9]) || 0;
 
     const openNetPnL =
-      Number(
-        accountDetailsData[23]
-      ) || 0;
+      Number(accountDetailsData[23]) || 0;
 
 
     /*
