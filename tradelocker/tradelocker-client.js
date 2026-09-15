@@ -328,6 +328,20 @@ accountDetailsDataLength:
   Array.isArray(data?.d?.accountDetailsData)
     ? data.d.accountDetailsData.length
     : null,
+accountDetailsDataPreview:
+  Array.isArray(data?.d?.accountDetailsData)
+    ? data.d.accountDetailsData.map((value, index) => ({
+        index,
+        type: Array.isArray(value)
+          ? 'array'
+          : typeof value,
+        value:
+          value !== null &&
+          typeof value === 'object'
+            ? Object.keys(value)
+            : value
+      }))
+    : []
   dLength:
     Array.isArray(data?.d)
       ? data.d.length
