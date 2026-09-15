@@ -4,6 +4,7 @@ const {createMarketDataRouter}=require("./market-data/market-data-routes");
 const {createMarketDataProviderRouter}=require("./market-data/market-data-provider-routes");
 const {calculateTrade}=require("./utils/trade-calculator");
 const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
+const {createMT5Router}=require("./mt5/mt5-routes");
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL&&!process.env.DATABASE_URL.includes("localhost")?{rejectUnauthorized:false}:false});
 app.use(express.json({limit:"5mb"}));app.use(cookieParser());app.use(express.static(path.join(__dirname,"public")));
@@ -14,6 +15,7 @@ function auth(req,res,next){const t=req.cookies.gt_token;if(!t)return res.status
 app.use("/api/market-data",createMarketDataRouter({db,auth}));
 app.use("/api/market-data",createMarketDataProviderRouter({db,auth}));
 app.use("/api/tradelocker",createTradeLockerRouter({db,auth}));
+app.use("/api/mt5",createMT5Router({db,auth}));
 async function init(){
  await db(`CREATE TABLE IF NOT EXISTS market_symbols(
  id SERIAL PRIMARY KEY,
