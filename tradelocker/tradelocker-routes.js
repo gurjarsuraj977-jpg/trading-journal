@@ -528,6 +528,56 @@ function createTradeLockerRouter({ db, auth }) {
       });
     }
   });
+  router.get('/config', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const session = sessions.getSession(userId);
+
+    if (!session || !session.accessToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'TradeLocker is not connected.'
+      });
+    }
+
+    const config =
+      await client.getTradeConfig({
+        environment: session.environment,
+        accessToken: session.accessToken
+      });
+
+    const ordersHistoryConfig =
+      config &&
+      config.d &&
+      config.d.ordersHistoryConfig;
+
+    if (!ordersHistoryConfig) {
+      return res.status(404).json({
+        success: false,
+        message: 'ordersHistoryConfig was not found in TradeLocker config.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      ordersHistoryConfig: ordersHistoryConfig
+    });
+
+  } catch (error) {
+    console.error(
+      'TradeLocker config error:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        'Failed to fetch TradeLocker config.'
+    });
+  }
+});
 router.get('/history', async (req, res) => {
   try {
     const userId = req.user.id;
