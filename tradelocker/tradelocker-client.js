@@ -16,9 +16,9 @@ class TradeLockerClient {
     const url = TL_ENDPOINTS[env];
 
     if (!url) {
-      throw new Error(
-        `Invalid TradeLocker environment: "${environment}". Must be "demo" or "live".`
-      );
+throw new Error(
+  `Invalid TradeLocker environment: "${environment}". Must be "demo" or "live".`
+);
     }
 
     return url;
