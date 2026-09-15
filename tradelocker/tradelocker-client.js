@@ -533,21 +533,40 @@ console.log(
     }
 
 
-    /*
-     * --------------------------------------------------
-     * TEMPORARY
-     *
-     * Do not guess indexes yet.
-     * --------------------------------------------------
-     */
+/*
+ * TradeLocker accountDetailsData follows the
+ * exact order defined by accountDetailsConfig.columns.
+ *
+ * 0  = balance
+ * 1  = projectedBalance
+ * 2  = availableFunds
+ * 9  = initialMarginReq
+ * 23 = openNetPnL
+ */
 
-    return {
-      balance: null,
-      equity: null,
-      freeMargin: null,
-      marginUsed: null,
-      unrealizedPl: null
-    };
+const balance =
+  Number(accountDetailsData[0]) || 0;
+
+const projectedBalance =
+  Number(accountDetailsData[1]) || 0;
+
+const availableFunds =
+  Number(accountDetailsData[2]) || 0;
+
+const initialMarginReq =
+  Number(accountDetailsData[9]) || 0;
+
+const openNetPnL =
+  Number(accountDetailsData[23]) || 0;
+
+
+return {
+  balance,
+  equity: projectedBalance,
+  freeMargin: availableFunds,
+  marginUsed: initialMarginReq,
+  unrealizedPl: openNetPnL
+};
   }
 }
 
