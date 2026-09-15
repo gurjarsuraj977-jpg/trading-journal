@@ -282,6 +282,7 @@ async getAccountState({
       'UnrealizedPL'
     )
   };
+  }
 }
 
 module.exports = { TradeLockerClient };
