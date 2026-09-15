@@ -202,7 +202,98 @@ class TradeLockerClient {
         return Boolean(account.id);
       });
   }
+  async getOrdersHistory({
+    environment,
+    accessToken,
+    accountId,
+    accNum,
+    from,
+    to
+  }) {
+    if (!accountId) {
+      throw new Error(
+        'accountId is required to fetch orders history.'
+      );
+    }
 
+    if (
+      accNum === null ||
+      accNum === undefined ||
+      isNaN(Number(accNum))
+    ) {
+      throw new Error(
+        'accNum is missing or invalid; cannot query orders history.'
+      );
+    }
+
+    const baseUrl = this.getBaseUrl(environment);
+
+    let url =
+      baseUrl +
+      '/trade/accounts/' +
+      encodeURIComponent(accountId) +
+      '/ordersHistory';
+
+    const params = [];
+
+    if (
+      from !== undefined &&
+      from !== null
+    ) {
+      params.push(
+        'from=' + encodeURIComponent(String(from))
+      );
+    }
+
+    if (
+      to !== undefined &&
+      to !== null
+    ) {
+      params.push(
+        'to=' + encodeURIComponent(String(to))
+      );
+    }
+
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+
+    const response = await fetch(
+      url,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Accept': 'application/json',
+          'accNum': String(accNum)
+        }
+      }
+    );
+
+    const text = await response.text();
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        (
+          'Failed to fetch TradeLocker orders history (' +
+          response.status +
+          ')'
+        )
+      );
+    }
+
+    return data;
+  }
   async getAccountState({
     environment,
     accessToken,
