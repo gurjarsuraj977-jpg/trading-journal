@@ -1207,10 +1207,15 @@ const lotSize =
           ? closingValue / closingQuantity
           : 0;
 
-const grossProfitLoss =
+const grossProfitLossRaw =
   openingSide === 'BUY'
     ? (exitPrice - entry) * quantity * lotSize
     : (entry - exitPrice) * quantity * lotSize;
+
+const grossProfitLoss =
+  Math.round(
+    (grossProfitLossRaw + Number.EPSILON) * 100
+  ) / 100;
 
 trades.push({
   positionId,
