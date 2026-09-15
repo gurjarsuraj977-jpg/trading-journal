@@ -219,7 +219,11 @@ async getPositions({
 
   const baseUrl = this.getBaseUrl(environment);
   
-const endpoint = baseUrl + '/clientapi/v1/positions';
+const endpoint =
+  baseUrl +
+  '/trade/accounts/' +
+  encodeURIComponent(String(accountId)) +
+  '/positions';
 
   const response = await fetch(endpoint, {
     method: 'GET',
