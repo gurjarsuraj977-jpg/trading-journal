@@ -1314,6 +1314,14 @@ async function accounts(){
           ${M(a.pnl)}
         </strong>
         <small>Net P&L</small>
+
+        <button
+          class="secondary"
+          type="button"
+          onclick="editAccountBalance(${a.id},${Number(a.starting_balance||0)})"
+        >
+          Edit Balance
+        </button>
       </div>`
     ).join('')||
     '<p>No accounts yet.</p>';
