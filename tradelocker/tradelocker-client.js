@@ -1,7 +1,6 @@
-```js
 /**
- * TradeLocker API Client (Phase 1)
- * Handles Demo & Live TradeLocker endpoints with zero credential persistence.
+ * TradeLocker API Client
+ * Demo & Live TradeLocker endpoints.
  */
 
 const TL_ENDPOINTS = {
@@ -12,18 +11,19 @@ const TL_ENDPOINTS = {
 class TradeLockerClient {
 
   getBaseUrl(environment) {
-    const env = (environment || '').toLowerCase().trim();
+    const env = String(environment || '').toLowerCase().trim();
     const url = TL_ENDPOINTS[env];
 
     if (!url) {
-throw new Error(
-  'Invalid TradeLocker environment: "' + environment + '". Must be "demo" or "live".'
-);
+      throw new Error(
+        'Invalid TradeLocker environment: "' +
+        environment +
+        '". Must be "demo" or "live".'
+      );
     }
 
     return url;
   }
-
 
   async authenticate({
     environment,
@@ -34,7 +34,7 @@ throw new Error(
     const baseUrl = this.getBaseUrl(environment);
 
     const response = await fetch(
-      `${baseUrl}/auth/jwt/token`,
+      baseUrl + '/auth/jwt/token',
       {
         method: 'POST',
         headers: {
@@ -42,21 +42,22 @@ throw new Error(
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          email,
-          password,
-          server
+          email: email,
+          password: password,
+          server: server
         })
       }
     );
 
-    const data =
-      await response.json().catch(() => ({}));
+    const data = await response.json().catch(function () {
+      return {};
+    });
 
     if (!response.ok) {
       const msg =
         data.message ||
         data.error ||
-        `Authentication failed (${response.status})`;
+        ('Authentication failed (' + response.status + ')');
 
       throw new Error(msg);
     }
@@ -73,7 +74,6 @@ throw new Error(
     };
   }
 
-
   async refreshAccessToken({
     environment,
     refreshToken
@@ -84,11 +84,10 @@ throw new Error(
       );
     }
 
-    const baseUrl =
-      this.getBaseUrl(environment);
+    const baseUrl = this.getBaseUrl(environment);
 
     const response = await fetch(
-      `${baseUrl}/auth/jwt/refresh`,
+      baseUrl + '/auth/jwt/refresh',
       {
         method: 'POST',
         headers: {
@@ -96,13 +95,14 @@ throw new Error(
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          refreshToken
+          refreshToken: refreshToken
         })
       }
     );
 
-    const data =
-      await response.json().catch(() => ({}));
+    const data = await response.json().catch(function () {
+      return {};
+    });
 
     if (!response.ok) {
       throw new Error(
@@ -118,34 +118,35 @@ throw new Error(
     };
   }
 
-
   async getAllAccounts({
     environment,
     accessToken
   }) {
-    const baseUrl =
-      this.getBaseUrl(environment);
+    const baseUrl = this.getBaseUrl(environment);
 
     const response = await fetch(
-      `${baseUrl}/auth/jwt/all-accounts`,
+      baseUrl + '/auth/jwt/all-accounts',
       {
         method: 'GET',
         headers: {
-          'Authorization':
-            `Bearer ${accessToken}`,
-          'Accept':
-            'application/json'
+          'Authorization': 'Bearer ' + accessToken,
+          'Accept': 'application/json'
         }
       }
     );
 
-    const data =
-      await response.json().catch(() => ({}));
+    const data = await response.json().catch(function () {
+      return {};
+    });
 
     if (!response.ok) {
       throw new Error(
         data.message ||
-        `Failed to fetch TradeLocker accounts (${response.status})`
+        (
+          'Failed to fetch TradeLocker accounts (' +
+          response.status +
+          ')'
+        )
       );
     }
 
@@ -155,7 +156,7 @@ throw new Error(
         : (data.accounts || []);
 
     return rawAccounts
-      .map(acc => {
+      .map(function (acc) {
 
         const rawId =
           acc.id !== undefined
@@ -169,24 +170,20 @@ throw new Error(
           acc.accNum !== null &&
           !isNaN(Number(acc.accNum))
         ) {
-          rawAccNum =
-            Number(acc.accNum);
+          rawAccNum = Number(acc.accNum);
 
         } else if (
           acc.accountNumber !== undefined &&
           acc.accountNumber !== null &&
           !isNaN(Number(acc.accountNumber))
         ) {
-          rawAccNum =
-            Number(acc.accountNumber);
+          rawAccNum = Number(acc.accountNumber);
         }
 
         return {
-          id:
-            String(rawId || ''),
+          id: String(rawId || ''),
 
-          accNum:
-            rawAccNum,
+          accNum: rawAccNum,
 
           accountName:
             acc.name ||
@@ -201,12 +198,10 @@ throw new Error(
             acc.status || 'Active'
         };
       })
-      .filter(
-        account =>
-          Boolean(account.id)
-      );
+      .filter(function (account) {
+        return Boolean(account.id);
+      });
   }
-
 
   async getAccountState({
     environment,
@@ -231,66 +226,50 @@ throw new Error(
       );
     }
 
-    const baseUrl =
-      this.getBaseUrl(environment);
+    const baseUrl = this.getBaseUrl(environment);
 
     const url =
-      `${baseUrl}/trade/accounts/` +
-      `${encodeURIComponent(accountId)}/state`;
+      baseUrl +
+      '/trade/accounts/' +
+      encodeURIComponent(accountId) +
+      '/state';
 
     const headers = {
-      'Authorization':
-        `Bearer ${accessToken}`,
-
-      'Accept':
-        'application/json',
-
-      'accNum':
-        String(accNum)
+      'Authorization': 'Bearer ' + accessToken,
+      'Accept': 'application/json',
+      'accNum': String(accNum)
     };
 
-
-    /*
-     * Get account state.
-     */
     const response = await fetch(
       url,
       {
         method: 'GET',
-        headers
+        headers: headers
       }
     );
 
-
-    const text =
-      await response.text();
-
+    const text = await response.text();
 
     let data = {};
 
     try {
-      data =
-        text
-          ? JSON.parse(text)
-          : {};
-    } catch {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
       data = {};
     }
-
 
     if (!response.ok) {
       throw new Error(
         data.message ||
         data.error ||
-        `Failed to fetch account state (${response.status})`
+        (
+          'Failed to fetch account state (' +
+          response.status +
+          ')'
+        )
       );
     }
 
-
-    /*
-     * Never attempt to parse authentication
-     * responses as account state.
-     */
     if (
       data &&
       (
@@ -303,31 +282,12 @@ throw new Error(
       );
     }
 
-
-    /*
-     * TradeLocker returns:
-     *
-     * data.d.accountDetailsData
-     *
-     * The array order is defined by
-     * accountDetailsConfig.columns.
-     *
-     * Confirmed mapping:
-     *
-     * 0  = balance
-     * 1  = projectedBalance
-     * 2  = availableFunds
-     * 9  = initialMarginReq
-     * 23 = openNetPnL
-     */
-
     const accountDetailsData =
-      data?.d?.accountDetailsData;
+      data &&
+      data.d &&
+      data.d.accountDetailsData;
 
-
-    if (
-      !Array.isArray(accountDetailsData)
-    ) {
+    if (!Array.isArray(accountDetailsData)) {
       return {
         balance: null,
         equity: null,
@@ -336,11 +296,6 @@ throw new Error(
         unrealizedPl: null
       };
     }
-
-
-    /*
-     * Map TradeLocker account state.
-     */
 
     const balance =
       Number(accountDetailsData[0]) || 0;
@@ -357,32 +312,20 @@ throw new Error(
     const openNetPnL =
       Number(accountDetailsData[23]) || 0;
 
-
-    /*
-     * Return the structure expected by
-     * the GhostTrader frontend.
-     */
-
     return {
-      balance,
+      balance: balance,
 
-      equity:
-        projectedBalance,
+      equity: projectedBalance,
 
-      freeMargin:
-        availableFunds,
+      freeMargin: availableFunds,
 
-      marginUsed:
-        initialMarginReq,
+      marginUsed: initialMarginReq,
 
-      unrealizedPl:
-        openNetPnL
+      unrealizedPl: openNetPnL
     };
   }
 }
 
-
 module.exports = {
-  TradeLockerClient
+  TradeLockerClient: TradeLockerClient
 };
-```
