@@ -296,59 +296,71 @@ class TradeLockerClient {
     return data;
   }
 
-  async getTradeConfig({
-    environment,
-    accessToken
-  }) {
-    const baseUrl = this.getBaseUrl(environment);
-
-    const response = await fetch(
-      baseUrl + '/trade/config',
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer ' + accessToken,
-          'Accept': 'application/json'
-        }
-      }
+async getTradeConfig({
+  environment,
+  accessToken,
+  accNum
+}) {
+  if (
+    accNum === null ||
+    accNum === undefined ||
+    isNaN(Number(accNum))
+  ) {
+    throw new Error(
+      'accNum is missing or invalid; cannot query TradeLocker config.'
     );
-
-    const text = await response.text();
-
-    let data = {};
-
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (error) {
-      data = {};
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data.message ||
-        data.error ||
-        (
-          'Failed to fetch TradeLocker config (' +
-          response.status +
-          ')'
-        )
-      );
-    }
-
-    if (
-      data &&
-      (
-        data.accessToken ||
-        data.refreshToken
-      )
-    ) {
-      throw new Error(
-        'TradeLocker returned authentication data instead of config.'
-      );
-    }
-
-    return data;
   }
+
+  const baseUrl = this.getBaseUrl(environment);
+
+  const response = await fetch(
+    baseUrl + '/trade/config',
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept': 'application/json',
+        'accNum': String(accNum)
+      }
+    }
+  );
+
+  const text = await response.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+      data.error ||
+      (
+        'Failed to fetch TradeLocker config (' +
+        response.status +
+        ')'
+      )
+    );
+  }
+
+  if (
+    data &&
+    (
+      data.accessToken ||
+      data.refreshToken
+    )
+  ) {
+    throw new Error(
+      'TradeLocker returned authentication data instead of config.'
+    );
+  }
+
+  return data;
+}
 
   async getAccountState({
     environment,
