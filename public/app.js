@@ -2268,7 +2268,8 @@ $('#refreshInsights').onclick=()=>
 async function loadTradeLockerConnection(){
   const status=$("#tradelockerStatus");
   const message=$("#tradelockerMessage");
-  if(!status) return;
+
+  if(!status)return;
 
   try{
     const d=await api('/api/tradelocker/status');
@@ -2295,8 +2296,13 @@ async function loadTradeLockerConnection(){
       if(message){
         message.textContent='TradeLocker is connected.';
       }
+
+      await loadTradeLockerAccounts();
+
     }else{
       setTradeLockerStatus(false);
+
+      hideTradeLockerAccounts();
 
       if(message){
         if(d.status==='reconnect_required'){
@@ -2306,9 +2312,12 @@ async function loadTradeLockerConnection(){
         }
       }
     }
+
   }catch(e){
     console.warn('TradeLocker status check:',e.message);
+
     setTradeLockerStatus(false);
+    hideTradeLockerAccounts();
 
     if(message){
       message.textContent='Unable to check TradeLocker connection.';
@@ -2316,8 +2325,10 @@ async function loadTradeLockerConnection(){
   }
 }
 
+
 function setTradeLockerStatus(connected){
   const status=$("#tradelockerStatus");
+
   if(!status)return;
 
   if(connected){
@@ -2328,6 +2339,296 @@ function setTradeLockerStatus(connected){
     status.classList.remove('connected');
   }
 }
+
+
+function hideTradeLockerAccounts(){
+  const box=$("#tradelockerAccountsBox");
+
+  if(box){
+    box.style.display='none';
+  }
+
+  clearTradeLockerAccountDetails();
+}
+
+
+function clearTradeLockerAccountDetails(){
+  const fields=[
+    "#tlAccountIdValue",
+    "#tlAccNumValue",
+    "#tlAccountNameValue",
+    "#tlCurrencyValue",
+    "#tlAccountStatusValue",
+    "#tlBalanceValue",
+    "#tlEquityValue",
+    "#tlFreeMarginValue",
+    "#tlMarginUsedValue",
+    "#tlUnrealizedPlValue"
+  ];
+
+  fields.forEach(selector=>{
+    const el=$(selector);
+    if(el)el.textContent='—';
+  });
+}
+
+
+async function loadTradeLockerAccounts(){
+  const box=$("#tradelockerAccountsBox");
+  const select=$("#tlAccountSelect");
+
+  if(!box || !select)return;
+
+  try{
+    const d=await api('/api/tradelocker/accounts');
+
+    const accounts=Array.isArray(d.accounts)
+      ? d.accounts
+      : [];
+
+    const selected=d.selectedAccount||null;
+
+    select.innerHTML='<option value="">Select an account</option>';
+
+    accounts.forEach(account=>{
+      const option=document.createElement('option');
+
+      option.value=account.accountId||account.id||'';
+
+      const name=account.accountName||account.name||'Account';
+      const accNum=account.accNum!=null
+        ? ` #${account.accNum}`
+        : '';
+
+      option.textContent=`${name}${accNum}`;
+
+      if(
+        selected &&
+        String(option.value)===String(
+          selected.accountId||selected.id||''
+        )
+      ){
+        option.selected=true;
+      }
+
+      select.appendChild(option);
+    });
+
+    if(accounts.length){
+      box.style.display='block';
+
+      if(selected){
+        updateTradeLockerAccountDetails(selected);
+        await loadTradeLockerState();
+      }else{
+        clearTradeLockerAccountDetails();
+      }
+    }else{
+      box.style.display='block';
+
+      const option=document.createElement('option');
+      option.value='';
+      option.textContent='No TradeLocker accounts found';
+      select.appendChild(option);
+
+      clearTradeLockerAccountDetails();
+    }
+
+  }catch(e){
+    console.warn('TradeLocker accounts:',e.message);
+
+    box.style.display='none';
+
+    const message=$("#tradelockerMessage");
+
+    if(message){
+      message.textContent=e.message;
+    }
+  }
+}
+
+
+function updateTradeLockerAccountDetails(account){
+  if(!account)return;
+
+  const accountId=
+    account.accountId||
+    account.id||
+    '';
+
+  const accNum=
+    account.accNum!=null
+      ? account.accNum
+      : account.accountNumber!=null
+        ? account.accountNumber
+        : '';
+
+  const accountName=
+    account.accountName||
+    account.name||
+    '';
+
+  const currency=
+    account.currency||
+    '';
+
+  const accountStatus=
+    account.status||
+    '';
+
+  if($("#tlAccountIdValue")){
+    $("#tlAccountIdValue").textContent=accountId||'—';
+  }
+
+  if($("#tlAccNumValue")){
+    $("#tlAccNumValue").textContent=
+      accNum!=='' ? accNum : '—';
+  }
+
+  if($("#tlAccountNameValue")){
+    $("#tlAccountNameValue").textContent=
+      accountName||'—';
+  }
+
+  if($("#tlCurrencyValue")){
+    $("#tlCurrencyValue").textContent=
+      currency||'—';
+  }
+
+  if($("#tlAccountStatusValue")){
+    $("#tlAccountStatusValue").textContent=
+      accountStatus||'—';
+  }
+}
+
+
+async function selectTradeLockerAccount(accountId){
+  const message=$("#tradelockerMessage");
+  const select=$("#tlAccountSelect");
+
+  if(!accountId)return;
+
+  if(select){
+    select.disabled=true;
+  }
+
+  if(message){
+    message.textContent='Selecting TradeLocker account...';
+  }
+
+  try{
+    const d=await api('/api/tradelocker/select-account',{
+      method:'POST',
+      body:JSON.stringify({
+        accountId
+      })
+    });
+
+    if(d.selectedAccount){
+      updateTradeLockerAccountDetails(d.selectedAccount);
+    }
+
+    await loadTradeLockerState();
+
+    if(message){
+      message.textContent=
+        d.message||'TradeLocker account selected.';
+    }
+
+  }finally{
+    if(select){
+      select.disabled=false;
+    }
+  }
+}
+
+
+async function loadTradeLockerState(){
+  try{
+    const d=await api('/api/tradelocker/state');
+
+    const state=d.state||d.accountState||null;
+
+    if(!state){
+      clearTradeLockerState();
+      return;
+    }
+
+    if($("#tlBalanceValue")){
+      $("#tlBalanceValue").textContent=
+        formatTradeLockerNumber(state.balance);
+    }
+
+    if($("#tlEquityValue")){
+      $("#tlEquityValue").textContent=
+        formatTradeLockerNumber(state.equity);
+    }
+
+    if($("#tlFreeMarginValue")){
+      $("#tlFreeMarginValue").textContent=
+        formatTradeLockerNumber(
+          state.freeMargin
+        );
+    }
+
+    if($("#tlMarginUsedValue")){
+      $("#tlMarginUsedValue").textContent=
+        formatTradeLockerNumber(
+          state.marginUsed
+        );
+    }
+
+    if($("#tlUnrealizedPlValue")){
+      $("#tlUnrealizedPlValue").textContent=
+        formatTradeLockerNumber(
+          state.unrealizedPl
+        );
+    }
+
+  }catch(e){
+    console.warn('TradeLocker state:',e.message);
+
+    clearTradeLockerState();
+  }
+}
+
+
+function clearTradeLockerState(){
+  const fields=[
+    "#tlBalanceValue",
+    "#tlEquityValue",
+    "#tlFreeMarginValue",
+    "#tlMarginUsedValue",
+    "#tlUnrealizedPlValue"
+  ];
+
+  fields.forEach(selector=>{
+    const el=$(selector);
+
+    if(el){
+      el.textContent='—';
+    }
+  });
+}
+
+
+function formatTradeLockerNumber(value){
+  if(value===null || value===undefined || value===''){
+    return '—';
+  }
+
+  const number=Number(value);
+
+  if(!Number.isFinite(number)){
+    return String(value);
+  }
+
+  return number.toLocaleString(undefined,{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+}
+
 
 async function connectTradeLocker(){
   const btn=$("#connectTradeLocker");
@@ -2371,24 +2672,23 @@ async function connectTradeLocker(){
 
     setTradeLockerStatus(true);
 
-    $("#tlPassword").value='';
-
-    if(message){
-      message.textContent=d.message||'TradeLocker connected successfully.';
+    if($("#tlPassword")){
+      $("#tlPassword").value='';
     }
 
-    /*
-      The backend may return the available accounts.
-      We will add account selection/synchronization UI
-      in the next step.
-    */
-    console.log('TradeLocker accounts:',d.accounts||[]);
-    console.log('TradeLocker selected account:',d.selectedAccount||null);
+    if(message){
+      message.textContent=
+        d.message||
+        'TradeLocker connected successfully.';
+    }
+
+    await loadTradeLockerAccounts();
 
   }finally{
     btn.disabled=false;
   }
 }
+
 
 async function disconnectTradeLocker(){
   const btn=$("#disconnectTradeLocker");
@@ -2403,11 +2703,16 @@ async function disconnectTradeLocker(){
   }
 
   try{
-    const d=await api('/api/tradelocker/disconnect',{
-      method:'POST'
-    });
+    const d=await api(
+      '/api/tradelocker/disconnect',
+      {
+        method:'POST'
+      }
+    );
 
     setTradeLockerStatus(false);
+
+    hideTradeLockerAccounts();
 
     if($("#tlServer")){
       $("#tlServer").value='';
@@ -2422,7 +2727,9 @@ async function disconnectTradeLocker(){
     }
 
     if(message){
-      message.textContent=d.message||'TradeLocker disconnected.';
+      message.textContent=
+        d.message||
+        'TradeLocker disconnected.';
     }
 
   }finally{
@@ -2432,27 +2739,79 @@ async function disconnectTradeLocker(){
   }
 }
 
-$("#connectTradeLocker")?.addEventListener('click',async()=>{
-  try{
-    await connectTradeLocker();
-  }catch(e){
-    showError(e.message);
 
-    const message=$("#tradelockerMessage");
+$("#connectTradeLocker")?.addEventListener(
+  'click',
+  async()=>{
+    try{
+      await connectTradeLocker();
+    }catch(e){
+      showError(e.message);
 
-    if(message){
-      message.textContent=e.message;
+      const message=$("#tradelockerMessage");
+
+      if(message){
+        message.textContent=e.message;
+      }
     }
   }
-});
+);
 
-$("#disconnectTradeLocker")?.addEventListener('click',async()=>{
-  try{
-    await disconnectTradeLocker();
-  }catch(e){
-    showError(e.message);
+
+$("#disconnectTradeLocker")?.addEventListener(
+  'click',
+  async()=>{
+    try{
+      await disconnectTradeLocker();
+    }catch(e){
+      showError(e.message);
+    }
   }
-});
+);
+
+
+$("#tlAccountSelect")?.addEventListener(
+  'change',
+  async()=>{
+    const accountId=$("#tlAccountSelect").value;
+
+    if(!accountId)return;
+
+    try{
+      await selectTradeLockerAccount(accountId);
+    }catch(e){
+      showError(e.message);
+
+      const message=$("#tradelockerMessage");
+
+      if(message){
+        message.textContent=e.message;
+      }
+    }
+  }
+);
+
+
+$("#refreshTradeLockerState")?.addEventListener(
+  'click',
+  async()=>{
+    const btn=$("#refreshTradeLockerState");
+
+    if(btn){
+      btn.disabled=true;
+    }
+
+    try{
+      await loadTradeLockerState();
+    }catch(e){
+      showError(e.message);
+    }finally{
+      if(btn){
+        btn.disabled=false;
+      }
+    }
+  }
+);
 
 /* =========================================================
    V8.3 MARKET CHART
