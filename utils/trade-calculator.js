@@ -33,7 +33,53 @@ function validPrice(value) {
     value !== "" &&
     Number.isFinite(Number(value));
 }
+function resolveConversionRate({
+  pnlCurrency,
+  accountCurrency,
+  pnlConversionRate
+}) {
+  const pnl = String(pnlCurrency || "")
+    .trim()
+    .toUpperCase();
 
+  const account = String(accountCurrency || "")
+    .trim()
+    .toUpperCase();
+
+  if (!pnl || !account) {
+    return {
+      rate: null,
+      required: true,
+      valid: false
+    };
+  }
+
+  // Same currency: no conversion required.
+  if (pnl === account) {
+    return {
+      rate: 1,
+      required: false,
+      valid: true
+    };
+  }
+
+  // Different currencies require an externally supplied rate.
+  const supplied = Number(pnlConversionRate);
+
+  if (Number.isFinite(supplied) && supplied > 0) {
+    return {
+      rate: supplied,
+      required: true,
+      valid: true
+    };
+  }
+
+  return {
+    rate: null,
+    required: true,
+    valid: false
+  };
+}
 function calculateTrade({
   symbol,
   direction,
@@ -136,17 +182,13 @@ function calculateTrade({
    * Different currencies require an explicit
    * conversion rate. We never guess one.
    */
-  let conversionRate = null;
+const conversion = resolveConversionRate({
+  pnlCurrency: tradePnlCurrency,
+  accountCurrency: accCurrency,
+  pnlConversionRate: suppliedConversionRate
+});
 
-  if (
-    tradePnlCurrency &&
-    accCurrency &&
-    tradePnlCurrency === accCurrency
-  ) {
-    conversionRate = 1;
-  } else if (suppliedConversionRate !== null) {
-    conversionRate = suppliedConversionRate;
-  }
+const conversionRate = conversion.rate;
 
   const result = {
     riskAmount: 0,
@@ -334,11 +376,7 @@ function calculateTrade({
    * ---------------------------------------------------------
    */
 
-  if (
-    tradePnlCurrency &&
-    accCurrency &&
-    tradePnlCurrency !== accCurrency
-  ) {
+if (conversion.required && !conversion.valid) {
     result.needsCurrencyConversion = true;
 
     if (
