@@ -57,21 +57,27 @@ const sessions =
         });
       }
 
-      if (!ramSession || !ramSession.accessToken) {
-        return res.json({
-          connected: false,
-          status: 'reconnect_required',
-          environment: dbMeta.environment,
-          server: dbMeta.server,
-          accountId: dbMeta.account_id,
-          accNum: dbMeta.acc_num,
-          accountName: dbMeta.account_name,
-          currency: dbMeta.currency,
-          lastConnectedAt: dbMeta.last_connected_at,
-          lastError: dbMeta.last_error,
-          message:
-            'Server was restarted. In-memory session expired. Please reconnect.'
-        });
+if (!ramSession || !ramSession.accessToken) {
+  const restoredSession =
+    await sessions.restoreSession(userId);
+
+  if (!restoredSession || !restoredSession.accessToken) {
+    return res.json({
+      connected: false,
+      status: 'reconnect_required',
+      environment: dbMeta.environment,
+      server: dbMeta.server,
+      accountId: dbMeta.account_id,
+      accNum: dbMeta.acc_num,
+      accountName: dbMeta.account_name,
+      currency: dbMeta.currency,
+      lastConnectedAt: dbMeta.last_connected_at,
+      lastError: dbMeta.last_error,
+      message:
+        'TradeLocker session could not be restored. Please reconnect.'
+    });
+  }
+}
       }
 
       let state = null;
