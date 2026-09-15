@@ -1326,7 +1326,36 @@ async function accounts(){
     ).join('')||
     '<p>No accounts yet.</p>';
 }
+async function editAccountBalance(id,currentBalance){
+  const value=prompt(
+    'Enter new starting balance:',
+    Number(currentBalance||0).toFixed(2)
+  );
 
+  if(value===null)return;
+
+  const startingBalance=Number(value);
+
+  if(!Number.isFinite(startingBalance)||startingBalance<0){
+    alert('Please enter a valid non-negative balance.');
+    return;
+  }
+
+  try{
+    await api(`/api/accounts/${id}`,{
+      method:'PUT',
+      body:JSON.stringify({
+        startingBalance
+      })
+    });
+
+    await loadAccounts();
+    await accounts();
+    await dashboard();
+  }catch(e){
+    showError(e.message);
+  }
+}
 $("#dashAccount").onchange=async()=>{
   state.account=$("#dashAccount").value;
   await dashboard();
