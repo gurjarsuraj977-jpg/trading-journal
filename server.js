@@ -217,7 +217,7 @@ await db(`
   CREATE INDEX IF NOT EXISTS idx_tradelocker_connections_user_id
   ON tradelocker_connections(user_id)
 `);
-}
+
 await db(`
   CREATE TABLE IF NOT EXISTS mt5_connections (
     id SERIAL PRIMARY KEY,
@@ -246,6 +246,7 @@ await db(`
   CREATE INDEX IF NOT EXISTS idx_mt5_connections_user_id
   ON mt5_connections(user_id)
 `);
+ }
 function token(u){return jwt.sign({id:u.id,name:u.name,email:u.email},SECRET,{expiresIn:"7d"})}
 const setCookie=(res,t)=>res.cookie("gt_token",t,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:604800000});
 app.post("/api/auth/register",async(req,res)=>{try{let name=String(req.body.name||"").trim(),email=String(req.body.email||"").trim().toLowerCase(),pw=String(req.body.password||"");if(name.length<2||!email.includes("@")||pw.length<6)return res.status(400).json({error:"Name, valid email and 6+ character password required."});if((await db("SELECT id FROM users WHERE email=$1",[email])).rowCount)return res.status(409).json({error:"Email already registered."});let r=await db("INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING id,name,email",[name,email,await bcrypt.hash(pw,12)]);await db("INSERT INTO accounts(user_id,name) VALUES($1,'Main Account')",[r.rows[0].id]);setCookie(res,token(r.rows[0]));res.json({user:r.rows[0]})}catch(e){console.error(e);res.status(500).json({error:"Registration failed."})}});
