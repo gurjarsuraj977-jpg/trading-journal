@@ -664,6 +664,64 @@ const data = await client.getPositions({
     });
   }
 });
+  router.get('/filled-orders', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    let session = sessions.getSession(userId);
+
+    if (!session || !session.accessToken) {
+      session = await sessions.restoreSession(userId);
+    }
+
+    if (!session || !session.accessToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'TradeLocker session not connected'
+      });
+    }
+
+    const account = session.selectedAccount;
+
+    if (
+      !account ||
+      account.accNum === undefined ||
+      account.accNum === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'No TradeLocker account selected'
+      });
+    }
+
+    const data = await client.getFilledOrders({
+      environment: session.environment,
+      accessToken: session.accessToken,
+      accountId: account.id,
+      accNum: account.accNum
+    });
+
+    return res.json({
+      success: true,
+      account: {
+        id: account.id,
+        accNum: account.accNum
+      },
+      filledOrders: data
+    });
+
+  } catch (error) {
+    console.error(
+      '[TradeLocker Filled Orders Error]:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 router.get('/history', async (req, res) => {
   try {
     const userId = req.user.id;
