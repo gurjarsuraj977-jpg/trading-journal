@@ -541,11 +541,21 @@ function createTradeLockerRouter({ db, auth }) {
       });
     }
 
-    const config =
-      await client.getTradeConfig({
-        environment: session.environment,
-        accessToken: session.accessToken
-      });
+const account = session.selectedAccount;
+
+if (!account) {
+  return res.status(400).json({
+    success: false,
+    message: 'No TradeLocker account selected.'
+  });
+}
+
+const config =
+  await client.getTradeConfig({
+    environment: session.environment,
+    accessToken: session.accessToken,
+    accNum: account.accNum
+  });
 
     const ordersHistoryConfig =
       config &&
