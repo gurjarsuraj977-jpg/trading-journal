@@ -1279,14 +1279,10 @@
 </div>
 
 <div class="panel tradelocker-panel">
-
   <div class="panel-head">
-
     <div>
       <span class="eyebrow">TRADELOCKER</span>
-
       <h2>Broker Connection</h2>
-
       <p>
         Connect your TradeLocker account to synchronize trading data
         with GhostTrader.
@@ -1296,83 +1292,56 @@
     <span id="tradelockerStatus" class="status">
       <span></span> Not connected
     </span>
-
   </div>
 
   <div class="form-grid">
-
     <label>
       Environment
-
       <select id="tlEnvironment">
         <option value="live">Live</option>
         <option value="demo">Demo</option>
       </select>
-
     </label>
 
     <label>
       Server
-
       <input
         id="tlServer"
+        type="text"
         placeholder="TradeLocker server"
+        autocomplete="organization"
       >
-
     </label>
 
     <label>
-      Account ID
-
+      Email
       <input
-        id="tlAccountId"
-        placeholder="Account ID"
+        id="tlEmail"
+        type="email"
+        placeholder="TradeLocker email"
+        autocomplete="username"
       >
-
     </label>
 
     <label>
-      Access Token
-
+      Password
       <input
-        id="tlAccessToken"
+        id="tlPassword"
         type="password"
-        placeholder="Access token"
+        placeholder="TradeLocker password"
+        autocomplete="current-password"
       >
-
     </label>
-
-    <label>
-      Refresh Token
-
-      <input
-        id="tlRefreshToken"
-        type="password"
-        placeholder="Refresh token (optional)"
-      >
-
-    </label>
-
   </div>
 
   <div class="modal-actions">
-
-    <button
-      id="connectTradeLocker"
-      class="primary"
-      type="button"
-    >
+    <button id="connectTradeLocker" class="primary" type="button">
       Connect TradeLocker
     </button>
 
-    <button
-      id="disconnectTradeLocker"
-      class="secondary"
-      type="button"
-    >
+    <button id="disconnectTradeLocker" class="secondary" type="button">
       Disconnect
     </button>
-
   </div>
 
   <div
@@ -1380,7 +1349,6 @@
     class="muted"
     style="margin-top:14px;"
   ></div>
-
 </div>
 </section>
 
