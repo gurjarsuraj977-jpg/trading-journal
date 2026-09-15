@@ -767,9 +767,7 @@ function table(t,full=true){
             <th>Date</th>
             <th>Symbol</th>
             <th>Side</th>
-            <th>Account</th>
-            <th>P&L</th>
-            <th>R</th>
+<th>Account</th><th>Risk</th><th>P&L</th><th>R</th>
             ${
               full?
               '<th>Strategy</th><th>Actions</th>':
