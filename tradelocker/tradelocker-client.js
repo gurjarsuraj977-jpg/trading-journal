@@ -219,32 +219,43 @@ async getPositions({
 
   const baseUrl = this.getBaseUrl(environment);
 
-  const response = await fetch(
-    baseUrl + '/trade/positions',
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + accessToken,
-        'Accept': 'application/json',
-        'accNum': String(accNum)
-      }
+  const endpoint = baseUrl + '/trade/positions';
+
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Accept': 'application/json',
+      'accNum': String(accNum)
     }
-  );
+  });
 
   const text = await response.text();
+
+  console.log(
+    '[TradeLocker Positions Debug]',
+    JSON.stringify({
+      endpoint,
+      status: response.status,
+      response: text
+    })
+  );
 
   let data = {};
 
   try {
     data = text ? JSON.parse(text) : {};
   } catch (error) {
-    data = {};
+    data = {
+      raw: text
+    };
   }
 
   if (!response.ok) {
     throw new Error(
       data.message ||
       data.error ||
+      data.raw ||
       (
         'Failed to fetch TradeLocker positions (' +
         response.status +
