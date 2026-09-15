@@ -281,6 +281,97 @@ async getInstruments({
 
   return data;
 }
+  async getInstrumentDetails({
+  environment,
+  accessToken,
+  tradableInstrumentId,
+  routeId,
+  accNum
+}) {
+  if (
+    tradableInstrumentId === null ||
+    tradableInstrumentId === undefined ||
+    String(tradableInstrumentId).trim() === ''
+  ) {
+    throw new Error(
+      'tradableInstrumentId is missing or invalid; cannot query TradeLocker instrument details.'
+    );
+  }
+
+  if (
+    routeId === null ||
+    routeId === undefined ||
+    isNaN(Number(routeId))
+  ) {
+    throw new Error(
+      'routeId is missing or invalid; cannot query TradeLocker instrument details.'
+    );
+  }
+
+  if (
+    accNum === null ||
+    accNum === undefined ||
+    isNaN(Number(accNum))
+  ) {
+    throw new Error(
+      'accNum is missing or invalid; cannot query TradeLocker instrument details.'
+    );
+  }
+
+  const baseUrl = this.getBaseUrl(environment);
+
+  const endpoint =
+    baseUrl +
+    '/trade/instruments/' +
+    encodeURIComponent(String(tradableInstrumentId)) +
+    '?routeId=' +
+    encodeURIComponent(String(routeId));
+
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Accept': 'application/json',
+      'accNum': String(accNum)
+    }
+  });
+
+  const text = await response.text();
+
+  console.log(
+    '[TradeLocker Instrument Details Debug]',
+    JSON.stringify({
+      endpoint,
+      status: response.status,
+      response: text
+    })
+  );
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = {
+      raw: text
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+      data.error ||
+      data.raw ||
+      (
+        'Failed to fetch TradeLocker instrument details (' +
+        response.status +
+        ')'
+      )
+    );
+  }
+
+  return data;
+}
   async getPositions({
     environment,
     accessToken,
