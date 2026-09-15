@@ -528,7 +528,58 @@ function createTradeLockerRouter({ db, auth }) {
       });
     }
   });
+router.get('/history', async (req, res) => {
+  try {
+    const userId = req.user.id;
 
+    const session = sessions.getSession(userId);
+
+    if (!session || !session.accessToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'TradeLocker is not connected.'
+      });
+    }
+
+    const account = session.selectedAccount;
+
+    if (!account) {
+      return res.status(400).json({
+        success: false,
+        message: 'No TradeLocker account selected.'
+      });
+    }
+
+    const history =
+      await client.getOrdersHistory({
+        environment: session.environment,
+        accessToken: session.accessToken,
+        accountId: account.id,
+        accNum: account.accNum
+      });
+
+    return res.json({
+      success: true,
+      account: {
+        id: account.id,
+        accNum: account.accNum
+      },
+      history: history
+    });
+
+  } catch (error) {
+    console.error(
+      'TradeLocker history error:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: error.message ||
+        'Failed to fetch TradeLocker history.'
+    });
+  }
+});
   // ------------------------------------------------------------
   // DISCONNECT
   // ------------------------------------------------------------
