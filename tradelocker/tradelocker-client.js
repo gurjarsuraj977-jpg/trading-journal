@@ -202,7 +202,85 @@ class TradeLockerClient {
         return Boolean(account.id);
       });
   }
+async getInstruments({
+  environment,
+  accessToken,
+  accountId,
+  accNum
+}) {
+  if (
+    accountId === null ||
+    accountId === undefined ||
+    String(accountId).trim() === ''
+  ) {
+    throw new Error(
+      'accountId is missing or invalid; cannot query TradeLocker instruments.'
+    );
+  }
 
+  if (
+    accNum === null ||
+    accNum === undefined ||
+    isNaN(Number(accNum))
+  ) {
+    throw new Error(
+      'accNum is missing or invalid; cannot query TradeLocker instruments.'
+    );
+  }
+
+  const baseUrl = this.getBaseUrl(environment);
+
+  const endpoint =
+    baseUrl +
+    '/trade/accounts/' +
+    encodeURIComponent(String(accountId)) +
+    '/instruments';
+
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Accept': 'application/json',
+      'accNum': String(accNum)
+    }
+  });
+
+  const text = await response.text();
+
+  console.log(
+    '[TradeLocker Instruments Debug]',
+    JSON.stringify({
+      endpoint,
+      status: response.status,
+      response: text
+    })
+  );
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = {
+      raw: text
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+      data.error ||
+      data.raw ||
+      (
+        'Failed to fetch TradeLocker instruments (' +
+        response.status +
+        ')'
+      )
+    );
+  }
+
+  return data;
+}
   async getPositions({
     environment,
     accessToken,
