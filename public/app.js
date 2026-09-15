@@ -2812,7 +2812,67 @@ $("#refreshTradeLockerState")?.addEventListener(
     }
   }
 );
+$("#syncTradeLocker")?.addEventListener(
+  'click',
+  async()=>{
+    const btn=$("#syncTradeLocker");
+    const message=$("#tradelockerMessage");
 
+    if(btn){
+      btn.disabled=true;
+      btn.textContent='Syncing...';
+    }
+
+    if(message){
+      message.textContent=
+        'Synchronizing TradeLocker trades...';
+    }
+
+    try{
+      const d=await api(
+        '/api/tradelocker/sync',
+        {
+          method:'POST',
+          body:JSON.stringify({
+            dryRun:false
+          })
+        }
+      );
+
+      if(message){
+        message.textContent=
+          d.message||
+          `Synced ${d.inserted||0} TradeLocker trades successfully.`;
+      }
+
+      alert(
+        `TradeLocker sync complete.\n\n`+
+        `Imported: ${d.inserted||0}\n`+
+        `Skipped: ${d.skipped||0}\n`+
+        `Total processed: ${d.normalizedTrades||0}`
+      );
+
+      await loadAccounts();
+      await accounts();
+      await dashboard();
+
+    }catch(e){
+      showError(e.message);
+
+      if(message){
+        message.textContent=
+          e.message||
+          'TradeLocker sync failed.';
+      }
+
+    }finally{
+      if(btn){
+        btn.disabled=false;
+        btn.textContent='Sync Trades';
+      }
+    }
+  }
+);
 /* =========================================================
    V8.3 MARKET CHART
    Real PostgreSQL candle data
