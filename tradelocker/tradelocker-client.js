@@ -146,6 +146,7 @@ class TradeLockerClient {
   }
 
 async getAccountState({
+async getAccountState({
   environment,
   accessToken,
   accountId,
@@ -167,33 +168,90 @@ async getAccountState({
 
   const baseUrl = this.getBaseUrl(environment);
 
+  const url =
+    `${baseUrl}/trade/accounts/` +
+    `${encodeURIComponent(accountId)}/state`;
+
   const headers = {
     'Authorization': `Bearer ${accessToken}`,
     'Accept': 'application/json',
     'accNum': String(accNum)
   };
 
-  const response = await fetch(
-    `${baseUrl}/trade/accounts/${encodeURIComponent(accountId)}/state`,
-    {
-      method: 'GET',
-      headers
-    }
-  );
+  console.log('[TRADELOCKER STATE REQUEST]', {
+    environment,
+    url,
+    accountId: String(accountId),
+    accNum: String(accNum)
+  });
 
-  const data = await response.json().catch(() => ({}));
+  const response = await fetch(url, {
+    method: 'GET',
+    headers
+  });
+
+  const contentType =
+    response.headers.get('content-type') || '';
+
+  const text = await response.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
+
+  /*
+   * NEVER log accessToken / refreshToken.
+   */
+  const safeData = {
+    status: response.status,
+    contentType,
+    keys:
+      data && typeof data === 'object'
+        ? Object.keys(data)
+        : [],
+    hasAccessToken:
+      Boolean(data && data.accessToken),
+    hasRefreshToken:
+      Boolean(data && data.refreshToken),
+    expireDate:
+      data && data.expireDate
+        ? data.expireDate
+        : null
+  };
+
+  console.log(
+    '[TRADELOCKER STATE RESPONSE]',
+    safeData
+  );
 
   if (!response.ok) {
     throw new Error(
       data.message ||
+      data.error ||
       `Failed to fetch account state (${response.status})`
     );
   }
 
   /*
-   * TradeLocker can return account state using different
-   * response wrappers depending on the API response format.
+   * If TradeLocker unexpectedly returned an authentication
+   * response instead of account state, stop here.
    */
+  if (
+    data &&
+    (
+      data.accessToken ||
+      data.refreshToken
+    )
+  ) {
+    throw new Error(
+      'TradeLocker returned authentication data instead of account state.'
+    );
+  }
+
   const root =
     data && data.d !== undefined
       ? data.d
@@ -201,12 +259,25 @@ async getAccountState({
 
   let state = root;
 
-  if (root && typeof root === 'object' && !Array.isArray(root)) {
-    if (root.state && typeof root.state === 'object') {
+  if (
+    root &&
+    typeof root === 'object' &&
+    !Array.isArray(root)
+  ) {
+    if (
+      root.state &&
+      typeof root.state === 'object'
+    ) {
       state = root.state;
-    } else if (root.account && typeof root.account === 'object') {
+    } else if (
+      root.account &&
+      typeof root.account === 'object'
+    ) {
       state = root.account;
-    } else if (root.data && typeof root.data === 'object') {
+    } else if (
+      root.data &&
+      typeof root.data === 'object'
+    ) {
       state = root.data;
     }
   }
@@ -219,9 +290,6 @@ async getAccountState({
     state = {};
   }
 
-  /*
-   * Accept multiple possible field names.
-   */
   const getNumber = (...keys) => {
     for (const key of keys) {
       const value = state[key];
@@ -282,7 +350,7 @@ async getAccountState({
       'UnrealizedPL'
     )
   };
-  }
+}
 }
 
 module.exports = { TradeLockerClient };
