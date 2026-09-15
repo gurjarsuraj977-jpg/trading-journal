@@ -35,7 +35,10 @@ class TradeLockerClient {
     });
 
     const data = await response.json().catch(() => ({}));
-
+console.log(
+  '[TRADELOCKER STATE RAW]',
+  JSON.stringify(data, null, 2)
+);
     if (!response.ok) {
       const msg =
         data.message ||
