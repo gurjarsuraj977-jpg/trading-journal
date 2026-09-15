@@ -29,10 +29,13 @@ function normalizeDirection(direction) {
 }
 
 function validPrice(value) {
-  return value !== null &&
+  return (
+    value !== null &&
     value !== "" &&
-    Number.isFinite(Number(value));
+    Number.isFinite(Number(value))
+  );
 }
+
 function resolveConversionRate({
   pnlCurrency,
   accountCurrency,
@@ -54,7 +57,6 @@ function resolveConversionRate({
     };
   }
 
-  // Same currency: no conversion required.
   if (pnl === account) {
     return {
       rate: 1,
@@ -63,7 +65,6 @@ function resolveConversionRate({
     };
   }
 
-  // Different currencies require an externally supplied rate.
   const supplied = Number(pnlConversionRate);
 
   if (Number.isFinite(supplied) && supplied > 0) {
@@ -80,6 +81,7 @@ function resolveConversionRate({
     valid: false
   };
 }
+
 function calculateTrade({
   symbol,
   direction,
@@ -103,16 +105,8 @@ function calculateTrade({
   /*
    * Currency conversion:
    *
-   * Example:
-   * USD account + USDJPY trade
-   * P&L is generated in JPY.
-   *
-   * pnlConversionRate should convert:
+   * pnlConversionRate converts:
    * 1 unit of pnlCurrency -> accountCurrency
-   *
-   * Example:
-   * JPY -> USD
-   * 1 JPY = 0.00667 USD
    */
   pnlConversionRate
 }) {
@@ -128,18 +122,19 @@ function calculateTrade({
 
   /*
    * Custom values override the instrument specification.
-   * This keeps compatibility with existing callers.
    */
   const customContractSize = finiteOrNull(contractSize);
   const customLeverage = finiteOrNull(leverage);
 
-  const cs = customContractSize !== null
-    ? customContractSize
-    : finiteOrNull(spec.contractSize);
+  const cs =
+    customContractSize !== null
+      ? customContractSize
+      : finiteOrNull(spec.contractSize);
 
-  const lev = customLeverage !== null
-    ? customLeverage
-    : finiteOrNull(spec.defaultLeverage);
+  const lev =
+    customLeverage !== null
+      ? customLeverage
+      : finiteOrNull(spec.defaultLeverage);
 
   const e = finiteOrNull(entry);
 
@@ -175,34 +170,34 @@ function calculateTrade({
     finiteOrNull(pnlConversionRate);
 
   /*
-   * Currency conversion factor:
-   *
-   * Same currency = 1
-   *
-   * Different currencies require an explicit
-   * conversion rate. We never guess one.
+   * Currency conversion factor.
    */
-const conversion = resolveConversionRate({
-  pnlCurrency: tradePnlCurrency,
-  accountCurrency: accCurrency,
-  pnlConversionRate: suppliedConversionRate
-});
+  const conversion = resolveConversionRate({
+    pnlCurrency: tradePnlCurrency,
+    accountCurrency: accCurrency,
+    pnlConversionRate: suppliedConversionRate
+  });
 
-const conversionRate = conversion.rate;
+  const conversionRate = conversion.rate;
 
   const result = {
-riskAmount: 0,
-riskPercent: 0,
-riskLevel: "UNKNOWN",
-profitLoss: 0,
+    riskAmount: 0,
+    riskPercent: 0,
+    riskLevel: "UNKNOWN",
+
+    profitLoss: 0,
     potentialProfit: 0,
     potentialLoss: 0,
+
     plannedRr: 0,
     actualR: 0,
+
     positionValue: 0,
     margin: 0,
+
     entrySlDistance: 0,
     entryTpDistance: 0,
+
     winLoss: "OPEN",
 
     /*
@@ -217,12 +212,16 @@ profitLoss: 0,
     symbol: s,
     direction: d,
     knownSymbol: isKnownSymbol,
+
     assetClass: spec.assetClass || "unknown",
     baseCurrency: spec.baseCurrency || null,
     quoteCurrency: spec.quoteCurrency || null,
+
     pnlCurrency: tradePnlCurrency || null,
     accountCurrency: accCurrency,
+
     conversionRate,
+
     needsCurrencyConversion: false,
     calculationStatus: "READY",
     error: null
@@ -259,10 +258,7 @@ profitLoss: 0,
   }
 
   /*
-   * Unknown instruments are no longer silently guessed.
-   *
-   * A custom contract size + custom P&L currency can be
-   * supplied later for broker-specific instruments.
+   * Unknown instruments are not silently guessed.
    */
   if (!isKnownSymbol && cs === null) {
     result.calculationStatus = "UNKNOWN_INSTRUMENT";
@@ -285,12 +281,6 @@ profitLoss: 0,
    * ---------------------------------------------------------
    * SL VALIDATION
    * ---------------------------------------------------------
-   *
-   * BUY:
-   * SL must be below entry.
-   *
-   * SELL:
-   * SL must be above entry.
    */
 
   if (sl !== null) {
@@ -323,12 +313,6 @@ profitLoss: 0,
    * ---------------------------------------------------------
    * TP VALIDATION
    * ---------------------------------------------------------
-   *
-   * BUY:
-   * TP must be above entry.
-   *
-   * SELL:
-   * TP must be below entry.
    */
 
   if (tp !== null) {
@@ -377,43 +361,21 @@ profitLoss: 0,
    * ---------------------------------------------------------
    */
 
-if (conversion.required && !conversion.valid) {
+  if (conversion.required && !conversion.valid) {
     result.needsCurrencyConversion = true;
 
-    if (
-      conversionRate === null ||
-      conversionRate <= 0
-    ) {
-      result.calculationStatus = "NEEDS_CONVERSION";
-      result.error =
-        `P&L is calculated in ${tradePnlCurrency}, ` +
-        `but the account is in ${accCurrency}. ` +
-        `A valid currency conversion rate is required.`;
+    result.calculationStatus = "NEEDS_CONVERSION";
 
-      /*
-       * Do not invent a conversion rate.
-       *
-       * We can still provide distances and raw
-       * instrument values, but monetary account
-       * calculations must not be fabricated.
-       */
-    }
+    result.error =
+      `P&L is calculated in ${tradePnlCurrency}, ` +
+      `but the account is in ${accCurrency}. ` +
+      `A valid currency conversion rate is required.`;
   }
 
   /*
    * ---------------------------------------------------------
    * POSITION VALUE
    * ---------------------------------------------------------
-   *
-   * Raw notional:
-   *
-   * entry × contractSize × quantity
-   *
-   * For USD-quoted instruments this is already
-   * naturally expressed in USD.
-   *
-   * For non-USD P&L currencies, conversion is
-   * applied when available.
    */
 
   const rawPositionValue =
@@ -436,10 +398,6 @@ if (conversion.required && !conversion.valid) {
       2
     );
   } else {
-    /*
-     * Unknown currency relationship:
-     * don't pretend this is account-currency value.
-     */
     result.positionValue = 0;
   }
 
@@ -497,39 +455,43 @@ if (conversion.required && !conversion.valid) {
       result.riskAmount = 0;
     }
 
-if (
-  balance > 0 &&
-  result.riskAmount > 0
-) {
-  result.riskPercent = round(
-    (result.riskAmount / balance) * 100,
-    4
-  );
+    /*
+     * -------------------------------------------------------
+     * RISK PERCENT
+     * -------------------------------------------------------
+     */
 
-  /*
-   * ---------------------------------------------------------
-   * RISK SAFETY CLASSIFICATION
-   * ---------------------------------------------------------
-   *
-   * <= 1%       = NORMAL
-   * >1% to 2%   = ELEVATED
-   * >2% to 5%   = HIGH
-   * >5%         = CRITICAL
-   */
+    if (
+      balance > 0 &&
+      result.riskAmount > 0
+    ) {
+      result.riskPercent = round(
+        (result.riskAmount / balance) * 100,
+        4
+      );
 
-  if (result.riskPercent <= 1) {
-    result.riskLevel = "NORMAL";
-  } else if (result.riskPercent <= 2) {
-    result.riskLevel = "ELEVATED";
-  } else if (result.riskPercent <= 5) {
-    result.riskLevel = "HIGH";
-  } else {
-    result.riskLevel = "CRITICAL";
+      /*
+       * -----------------------------------------------------
+       * RISK SAFETY CLASSIFICATION
+       * -----------------------------------------------------
+       *
+       * <= 1%       = NORMAL
+       * >1% to 2%   = ELEVATED
+       * >2% to 5%   = HIGH
+       * >5%         = CRITICAL
+       */
+
+      if (result.riskPercent <= 1) {
+        result.riskLevel = "NORMAL";
+      } else if (result.riskPercent <= 2) {
+        result.riskLevel = "ELEVATED";
+      } else if (result.riskPercent <= 5) {
+        result.riskLevel = "HIGH";
+      } else {
+        result.riskLevel = "CRITICAL";
+      }
+    }
   }
-}
-
-}
-
 
   /*
    * ---------------------------------------------------------
@@ -580,6 +542,7 @@ if (
      * Potential loss and planned R:R are only
      * meaningful when monetary risk is known.
      */
+
     if (result.riskAmount > 0) {
       result.potentialLoss = round(
         -result.riskAmount,
@@ -637,6 +600,7 @@ if (
     /*
      * Actual R only makes sense when risk is known.
      */
+
     if (result.riskAmount > 0) {
       result.actualR = round(
         result.profitLoss /
@@ -655,25 +619,34 @@ if (
   }
 
   /*
-   * If conversion is missing, calculations involving
-   * account-currency money are intentionally incomplete.
+   * ---------------------------------------------------------
+   * INCOMPLETE CURRENCY CONVERSION
+   * ---------------------------------------------------------
    */
+
   if (
     result.calculationStatus === "NEEDS_CONVERSION"
   ) {
     /*
      * Preserve distances, but do not expose fabricated
-     * monetary values.
+     * account-currency monetary values.
      */
+
     result.riskAmount = 0;
     result.riskPercent = 0;
+
     result.profitLoss = 0;
+
     result.potentialProfit = 0;
     result.potentialLoss = 0;
+
     result.plannedRr = 0;
     result.actualR = 0;
+
     result.positionValue = 0;
     result.margin = 0;
+
+    result.riskLevel = "UNKNOWN";
   }
 
   return result;
