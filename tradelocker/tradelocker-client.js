@@ -400,11 +400,9 @@ async getInstruments({
 
   const baseUrl = this.getBaseUrl(environment);
 
-  const endpoint =
-    baseUrl +
-    '/trade/accounts/' +
-    encodeURIComponent(String(accountId)) +
-    '/details';
+const endpoint =
+  baseUrl +
+  '/trade/accounts';
 
   const response = await fetch(endpoint, {
     method: 'GET',
