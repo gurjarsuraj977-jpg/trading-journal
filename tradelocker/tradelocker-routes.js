@@ -591,22 +591,10 @@ const config =
     accNum: account.accNum
   });
 
-    const ordersHistoryConfig =
-      config &&
-      config.d &&
-      config.d.ordersHistoryConfig;
-
-    if (!ordersHistoryConfig) {
-      return res.status(404).json({
-        success: false,
-        message: 'ordersHistoryConfig was not found in TradeLocker config.'
-      });
-    }
-
-    return res.json({
-      success: true,
-      ordersHistoryConfig: ordersHistoryConfig
-    });
+return res.json({
+  success: true,
+  config: config
+});
 
   } catch (error) {
     console.error(
