@@ -994,12 +994,12 @@ router.get('/history', async (req, res) => {
       accNum: account.accNum
     });
 
-    const rows =
-      history &&
-      history.d &&
-      Array.isArray(history.d.orders)
-        ? history.d.orders
-        : [];
+const rows =
+  history &&
+  history.d &&
+  Array.isArray(history.d.ordersHistory)
+    ? history.d.ordersHistory
+    : [];
 
     const positionGroups = new Map();
 
