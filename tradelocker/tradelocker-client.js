@@ -145,86 +145,143 @@ class TradeLockerClient {
       .filter(a => Boolean(a.id));
   }
 
-  async getAccountState({
-    environment,
-    accessToken,
-    accountId,
-    accNum
-  }) {
-    if (!accountId) {
-      throw new Error('accountId is required to fetch state.');
-    }
+async getAccountState({
+  environment,
+  accessToken,
+  accountId,
+  accNum
+}) {
+  if (!accountId) {
+    throw new Error('accountId is required to fetch state.');
+  }
 
-    if (
-      accNum === null ||
-      accNum === undefined ||
-      isNaN(Number(accNum))
-    ) {
-      throw new Error(
-        'accNum is missing or invalid; cannot query account state.'
-      );
-    }
-
-    const baseUrl = this.getBaseUrl(environment);
-
-    const headers = {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
-      'accNum': String(accNum)
-    };
-
-    const response = await fetch(
-      `${baseUrl}/trade/accounts/${encodeURIComponent(accountId)}/state`,
-      {
-        method: 'GET',
-        headers
-      }
+  if (
+    accNum === null ||
+    accNum === undefined ||
+    isNaN(Number(accNum))
+  ) {
+    throw new Error(
+      'accNum is missing or invalid; cannot query account state.'
     );
+  }
 
-    const data = await response.json().catch(() => ({}));
+  const baseUrl = this.getBaseUrl(environment);
 
-    if (!response.ok) {
-      throw new Error(
-        data.message ||
-        `Failed to fetch account state (${response.status})`
-      );
+  const headers = {
+    'Authorization': `Bearer ${accessToken}`,
+    'Accept': 'application/json',
+    'accNum': String(accNum)
+  };
+
+  const response = await fetch(
+    `${baseUrl}/trade/accounts/${encodeURIComponent(accountId)}/state`,
+    {
+      method: 'GET',
+      headers
     }
+  );
 
-    const root = data.d !== undefined
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+      `Failed to fetch account state (${response.status})`
+    );
+  }
+
+  /*
+   * TradeLocker can return account state using different
+   * response wrappers depending on the API response format.
+   */
+  const root =
+    data && data.d !== undefined
       ? data.d
       : data;
 
-    const state = Array.isArray(root)
-      ? (root[0] || {})
-      : (root.state || root);
+  let state = root;
 
-    return {
-      balance:
-        state.balance !== undefined
-          ? Number(state.balance)
-          : null,
-
-      equity:
-        state.equity !== undefined
-          ? Number(state.equity)
-          : null,
-
-      freeMargin:
-        state.freeMargin !== undefined
-          ? Number(state.freeMargin)
-          : null,
-
-      marginUsed:
-        state.marginUsed !== undefined
-          ? Number(state.marginUsed)
-          : null,
-
-      unrealizedPl:
-        state.unrealizedPl !== undefined
-          ? Number(state.unrealizedPl)
-          : null
-    };
+  if (root && typeof root === 'object' && !Array.isArray(root)) {
+    if (root.state && typeof root.state === 'object') {
+      state = root.state;
+    } else if (root.account && typeof root.account === 'object') {
+      state = root.account;
+    } else if (root.data && typeof root.data === 'object') {
+      state = root.data;
+    }
   }
+
+  if (Array.isArray(state)) {
+    state = state[0] || {};
+  }
+
+  if (!state || typeof state !== 'object') {
+    state = {};
+  }
+
+  /*
+   * Accept multiple possible field names.
+   */
+  const getNumber = (...keys) => {
+    for (const key of keys) {
+      const value = state[key];
+
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== ''
+      ) {
+        const number = Number(value);
+
+        if (Number.isFinite(number)) {
+          return number;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  return {
+    balance: getNumber(
+      'balance',
+      'Balance',
+      'accountBalance',
+      'account_balance'
+    ),
+
+    equity: getNumber(
+      'equity',
+      'Equity',
+      'accountEquity',
+      'account_equity'
+    ),
+
+    freeMargin: getNumber(
+      'freeMargin',
+      'free_margin',
+      'FreeMargin',
+      'availableMargin',
+      'available_margin'
+    ),
+
+    marginUsed: getNumber(
+      'marginUsed',
+      'margin_used',
+      'MarginUsed',
+      'usedMargin',
+      'used_margin'
+    ),
+
+    unrealizedPl: getNumber(
+      'unrealizedPl',
+      'unrealizedPL',
+      'unrealizedPnl',
+      'unrealizedPnL',
+      'unrealized_pnl',
+      'UnrealizedPL'
+    )
+  };
 }
 
 module.exports = { TradeLockerClient };
