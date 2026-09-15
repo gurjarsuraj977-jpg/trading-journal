@@ -957,6 +957,185 @@ router.get('/history', async (req, res) => {
     });
   }
 });
+  router.get('/sync-preview', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    let session = sessions.getSession(userId);
+
+    if (!session || !session.accessToken) {
+      session = await sessions.restoreSession(userId);
+    }
+
+    if (!session || !session.accessToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'TradeLocker session not connected'
+      });
+    }
+
+    const account = session.selectedAccount;
+
+    if (
+      !account ||
+      account.accNum === undefined ||
+      account.accNum === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'No TradeLocker account selected'
+      });
+    }
+
+    const history = await client.getOrdersHistory({
+      environment: session.environment,
+      accessToken: session.accessToken,
+      accountId: account.id,
+      accNum: account.accNum
+    });
+
+    const rows =
+      history &&
+      history.d &&
+      Array.isArray(history.d.orders)
+        ? history.d.orders
+        : [];
+
+    const positionGroups = new Map();
+
+    for (const row of rows) {
+      if (!Array.isArray(row)) continue;
+
+      const positionId = row[16];
+
+      if (
+        positionId === null ||
+        positionId === undefined ||
+        String(positionId).trim() === ''
+      ) {
+        continue;
+      }
+
+      if (!positionGroups.has(String(positionId))) {
+        positionGroups.set(String(positionId), []);
+      }
+
+      positionGroups.get(String(positionId)).push(row);
+    }
+
+    const trades = [];
+
+    for (const [positionId, group] of positionGroups.entries()) {
+      const filled = group.filter(row =>
+        String(row[6]).toLowerCase() === 'filled'
+      );
+
+      const openingOrders = filled.filter(row =>
+        String(row[15]).toLowerCase() === 'true'
+      );
+
+      if (openingOrders.length !== 1) {
+        continue;
+      }
+
+      const opening = openingOrders[0];
+
+      const closingOrders = filled.filter(row =>
+        String(row[15]).toLowerCase() !== 'true'
+      );
+
+      if (closingOrders.length === 0) {
+        continue;
+      }
+
+      const openingSide =
+        String(opening[4]).toUpperCase();
+
+      const closingSide =
+        openingSide === 'BUY'
+          ? 'SELL'
+          : 'BUY';
+
+      const validClosingOrders =
+        closingOrders.filter(row =>
+          String(row[4]).toUpperCase() === closingSide
+        );
+
+      if (validClosingOrders.length === 0) {
+        continue;
+      }
+
+      const symbol =
+        opening[1];
+
+      const quantity =
+        Number(opening[7] || opening[3] || 0);
+
+      const entry =
+        Number(opening[8] || 0);
+
+      let closingQuantity = 0;
+      let closingValue = 0;
+
+      for (const row of validClosingOrders) {
+        const qty =
+          Number(row[7] || row[3] || 0);
+
+        const price =
+          Number(row[8] || 0);
+
+        if (
+          Number.isFinite(qty) &&
+          Number.isFinite(price) &&
+          qty > 0
+        ) {
+          closingQuantity += qty;
+          closingValue += qty * price;
+        }
+      }
+
+      const exitPrice =
+        closingQuantity > 0
+          ? closingValue / closingQuantity
+          : 0;
+
+      trades.push({
+        positionId,
+        symbol,
+        direction: openingSide,
+        quantity,
+        entry,
+        exitPrice,
+        openingOrderId: opening[0],
+        closingOrderCount: validClosingOrders.length,
+        source: 'tradelocker'
+      });
+    }
+
+    return res.json({
+      success: true,
+      account: {
+        id: account.id,
+        accNum: account.accNum
+      },
+      historyRows: rows.length,
+      positionGroups: positionGroups.size,
+      completedTrades: trades.length,
+      trades
+    });
+
+  } catch (error) {
+    console.error(
+      '[TradeLocker Sync Preview Error]:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
   // ------------------------------------------------------------
   // DISCONNECT
   // ------------------------------------------------------------
