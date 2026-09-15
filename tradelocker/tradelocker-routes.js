@@ -1021,6 +1021,73 @@ for (const instrument of instrumentRows) {
     );
   }
 }
+    const instrumentDetailsCache = new Map();
+
+async function getInstrumentSpec(instrumentId, instrument) {
+  const cacheKey = String(instrumentId);
+
+  if (instrumentDetailsCache.has(cacheKey)) {
+    return instrumentDetailsCache.get(cacheKey);
+  }
+
+  const routes =
+    instrument &&
+    Array.isArray(instrument.routes)
+      ? instrument.routes
+      : [];
+
+  const tradeRoute =
+    routes.find(route =>
+      String(route.type).toUpperCase() === 'TRADE'
+    );
+
+  if (!tradeRoute) {
+    throw new Error(
+      'No TRADE route found for instrument ' + cacheKey
+    );
+  }
+
+  const detailsResponse =
+    await client.getInstrumentDetails({
+      environment: session.environment,
+      accessToken: session.accessToken,
+      tradableInstrumentId: cacheKey,
+      routeId: tradeRoute.id,
+      accNum: account.accNum
+    });
+
+  const details =
+    detailsResponse &&
+    detailsResponse.d
+      ? detailsResponse.d
+      : null;
+
+  if (!details) {
+    throw new Error(
+      'TradeLocker returned no instrument details for ' +
+      cacheKey
+    );
+  }
+
+  const spec = {
+    instrumentId: cacheKey,
+    name: details.name || instrument.name || cacheKey,
+    lotSize: Number(details.lotSize || 0),
+    lotStep: Number(details.lotStep || 0),
+    minLot: Number(details.minLot || 0),
+    maxLot: Number(details.maxLot || 0),
+    quotingCurrency: details.quotingCurrency || null,
+    tickSize:
+      Array.isArray(details.tickSize) &&
+      details.tickSize.length > 0
+        ? Number(details.tickSize[0].tickSize || 0)
+        : 0
+  };
+
+  instrumentDetailsCache.set(cacheKey, spec);
+
+  return spec;
+}
 const rows =
   history &&
   history.d &&
@@ -1101,7 +1168,14 @@ const symbol =
   instrument && instrument.name
     ? instrument.name
     : instrumentId;
+const instrumentSpec =
+  await getInstrumentSpec(
+    instrumentId,
+    instrument
+  );
 
+const lotSize =
+  instrumentSpec.lotSize;
       const quantity =
         Number(opening[7] || opening[3] || 0);
 
@@ -1133,17 +1207,24 @@ const symbol =
           ? closingValue / closingQuantity
           : 0;
 
-      trades.push({
-        positionId,
-        symbol,
-        direction: openingSide,
-        quantity,
-        entry,
-        exitPrice,
-        openingOrderId: opening[0],
-        closingOrderCount: validClosingOrders.length,
-        source: 'tradelocker'
-      });
+const grossProfitLoss =
+  openingSide === 'BUY'
+    ? (exitPrice - entry) * quantity * lotSize
+    : (entry - exitPrice) * quantity * lotSize;
+
+trades.push({
+  positionId,
+  symbol,
+  direction: openingSide,
+  quantity,
+  entry,
+  exitPrice,
+  lotSize,
+  grossProfitLoss,
+  openingOrderId: opening[0],
+  closingOrderCount: validClosingOrders.length,
+  source: 'tradelocker'
+});
     }
 
     return res.json({
