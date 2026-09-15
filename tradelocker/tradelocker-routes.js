@@ -47,7 +47,8 @@ const sessions =
       );
 
       const dbMeta = rows[0] || null;
-      const ramSession = sessions.getSession(userId);
+
+      let ramSession = sessions.getSession(userId);
 
       if (!dbMeta) {
         return res.json({
@@ -57,27 +58,33 @@ const sessions =
         });
       }
 
-if (!ramSession || !ramSession.accessToken) {
-  const restoredSession =
-    await sessions.restoreSession(userId);
+      // --------------------------------------------------------
+      // RESTORE SESSION AFTER SERVER RESTART
+      // --------------------------------------------------------
+      if (!ramSession || !ramSession.accessToken) {
+        const restoredSession =
+          await sessions.restoreSession(userId);
 
-  if (!restoredSession || !restoredSession.accessToken) {
-    return res.json({
-      connected: false,
-      status: 'reconnect_required',
-      environment: dbMeta.environment,
-      server: dbMeta.server,
-      accountId: dbMeta.account_id,
-      accNum: dbMeta.acc_num,
-      accountName: dbMeta.account_name,
-      currency: dbMeta.currency,
-      lastConnectedAt: dbMeta.last_connected_at,
-      lastError: dbMeta.last_error,
-      message:
-        'TradeLocker session could not be restored. Please reconnect.'
-    });
-  }
-}
+        if (!restoredSession || !restoredSession.accessToken) {
+          return res.json({
+            connected: false,
+            status: 'reconnect_required',
+            environment: dbMeta.environment,
+            server: dbMeta.server,
+            accountId: dbMeta.account_id,
+            accNum: dbMeta.acc_num,
+            accountName: dbMeta.account_name,
+            currency: dbMeta.currency,
+            lastConnectedAt: dbMeta.last_connected_at,
+            lastError: dbMeta.last_error,
+            message:
+              'TradeLocker session could not be restored. Please reconnect.'
+          });
+        }
+
+        // IMPORTANT:
+        // Use the newly restored session below.
+        ramSession = restoredSession;
       }
 
       let state = null;
@@ -99,13 +106,18 @@ if (!ramSession || !ramSession.accessToken) {
         } catch (err) {
           if (ramSession.refreshToken) {
             try {
-              const refreshed = await client.refreshAccessToken({
-                environment: ramSession.environment,
-                refreshToken: ramSession.refreshToken
-              });
+              const refreshed =
+                await client.refreshAccessToken({
+                  environment: ramSession.environment,
+                  refreshToken: ramSession.refreshToken
+                });
 
-              ramSession.accessToken = refreshed.accessToken;
-              ramSession.refreshToken = refreshed.refreshToken;
+              ramSession.accessToken =
+                refreshed.accessToken;
+
+              ramSession.refreshToken =
+                refreshed.refreshToken ||
+                ramSession.refreshToken;
 
               state = await client.getAccountState({
                 environment: ramSession.environment,
@@ -114,7 +126,7 @@ if (!ramSession || !ramSession.accessToken) {
                 accNum: ramSession.selectedAccount.accNum
               });
             } catch (refErr) {
-              sessions.clearSession(userId);
+              await sessions.clearSession(userId);
 
               return res.json({
                 connected: false,
@@ -122,8 +134,13 @@ if (!ramSession || !ramSession.accessToken) {
                 environment: dbMeta.environment,
                 server: dbMeta.server,
                 accountId: dbMeta.account_id,
-                lastError: 'Session expired, please reconnect.',
-                lastConnectedAt: dbMeta.last_connected_at
+                accNum: dbMeta.acc_num,
+                accountName: dbMeta.account_name,
+                currency: dbMeta.currency,
+                lastError:
+                  'Session expired, please reconnect.',
+                lastConnectedAt:
+                  dbMeta.last_connected_at
               });
             }
           }
@@ -147,12 +164,16 @@ if (!ramSession || !ramSession.accessToken) {
         currency: ramSession.selectedAccount
           ? ramSession.selectedAccount.currency
           : dbMeta.currency,
-        lastConnectedAt: dbMeta.last_connected_at,
+        lastConnectedAt:
+          dbMeta.last_connected_at,
         lastError: null,
         state
       });
     } catch (err) {
-      console.error('[TradeLocker Status Error]:', err.message);
+      console.error(
+        '[TradeLocker Status Error]:',
+        err.message
+      );
 
       return res.status(500).json({
         error: 'Failed to retrieve connection status.'
