@@ -151,7 +151,35 @@ async function init(){
     CONSTRAINT uq_tradelocker_connections_user UNIQUE (user_id)
   )
 `);
+await db(`
+  ALTER TABLE tradelocker_connections
+  ADD COLUMN IF NOT EXISTS refresh_token TEXT
+`);
 
+await db(`
+  ALTER TABLE tradelocker_connections
+  ADD COLUMN IF NOT EXISTS email VARCHAR(255)
+`);
+
+await db(`
+  ALTER TABLE tradelocker_connections
+  ADD COLUMN IF NOT EXISTS selected_account_id VARCHAR(64)
+`);
+
+await db(`
+  ALTER TABLE tradelocker_connections
+  ADD COLUMN IF NOT EXISTS selected_acc_num INTEGER
+`);
+
+await db(`
+  ALTER TABLE tradelocker_connections
+  ADD COLUMN IF NOT EXISTS selected_account_name VARCHAR(128)
+`);
+
+await db(`
+  ALTER TABLE tradelocker_connections
+  ADD COLUMN IF NOT EXISTS token_updated_at TIMESTAMPTZ
+`);
 await db(`
   CREATE INDEX IF NOT EXISTS idx_tradelocker_connections_user_id
   ON tradelocker_connections(user_id)
