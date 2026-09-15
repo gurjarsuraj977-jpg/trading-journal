@@ -648,11 +648,12 @@ const config =
       });
     }
 
-    const data = await client.getPositions({
-      environment: session.environment,
-      accessToken: session.accessToken,
-      accNum: account.accNum
-    });
+const data = await client.getPositions({
+  environment: session.environment,
+  accessToken: session.accessToken,
+  accNum: account.accNum,
+  accountId: account.id
+});
 
     res.json({
       success: true,
