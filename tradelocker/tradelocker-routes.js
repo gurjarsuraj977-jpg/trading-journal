@@ -1092,8 +1092,15 @@ const rows =
         continue;
       }
 
-      const symbol =
-        opening[1];
+ const instrumentId = String(opening[1]);
+
+const instrument =
+  instrumentMap.get(instrumentId);
+
+const symbol =
+  instrument && instrument.name
+    ? instrument.name
+    : instrumentId;
 
       const quantity =
         Number(opening[7] || opening[3] || 0);
