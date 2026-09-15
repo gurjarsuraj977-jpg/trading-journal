@@ -1281,71 +1281,497 @@ trades.push({
   }
 });
   router.post('/sync', async (req, res) => {
-  try {
-    const userId = req.user.id;
+    try {
+      const userId = req.user.id;
 
-    let session = sessions.getSession(userId);
+      let session = sessions.getSession(userId);
 
-    if (!session) {
-      await sessions.restoreSession(userId);
-      session = sessions.getSession(userId);
-    }
+      if (!session || !session.accessToken) {
+        session = await sessions.restoreSession(userId);
+      }
 
-    if (!session) {
-      return res.status(401).json({
+      if (!session || !session.accessToken) {
+        return res.status(401).json({
+          success: false,
+          error: 'TradeLocker session is not connected.'
+        });
+      }
+
+      if (
+        !session.selectedAccount ||
+        !session.selectedAccount.id ||
+        session.selectedAccount.accNum === undefined ||
+        session.selectedAccount.accNum === null
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: 'No TradeLocker account selected'
+        });
+      }
+
+      const account = session.selectedAccount;
+
+      // ----------------------------------------------------------
+      // GET TRADELOCKER HISTORY
+      // ----------------------------------------------------------
+
+      const history = await client.getOrdersHistory({
+        environment: session.environment,
+        accessToken: session.accessToken,
+        accountId: account.id,
+        accNum: account.accNum
+      });
+
+      const rows =
+        history &&
+        history.d &&
+        Array.isArray(history.d.ordersHistory)
+          ? history.d.ordersHistory
+          : [];
+
+      // ----------------------------------------------------------
+      // GET INSTRUMENTS
+      // ----------------------------------------------------------
+
+      const instrumentsResponse = await client.getInstruments({
+        environment: session.environment,
+        accessToken: session.accessToken,
+        accountId: account.id,
+        accNum: account.accNum
+      });
+
+      const instrumentRows =
+        instrumentsResponse &&
+        instrumentsResponse.d &&
+        Array.isArray(instrumentsResponse.d.instruments)
+          ? instrumentsResponse.d.instruments
+          : [];
+
+      const instrumentMap = new Map();
+
+      for (const instrument of instrumentRows) {
+        if (
+          instrument &&
+          instrument.tradableInstrumentId !== undefined &&
+          instrument.tradableInstrumentId !== null
+        ) {
+          instrumentMap.set(
+            String(instrument.tradableInstrumentId),
+            instrument
+          );
+        }
+      }
+
+      // ----------------------------------------------------------
+      // INSTRUMENT DETAILS CACHE
+      // ----------------------------------------------------------
+
+      const instrumentDetailsCache = new Map();
+
+      async function getInstrumentSpec(instrumentId, instrument) {
+        const cacheKey = String(instrumentId);
+
+        if (instrumentDetailsCache.has(cacheKey)) {
+          return instrumentDetailsCache.get(cacheKey);
+        }
+
+        const routes =
+          instrument &&
+          Array.isArray(instrument.routes)
+            ? instrument.routes
+            : [];
+
+        const tradeRoute =
+          routes.find(route =>
+            String(route.type).toUpperCase() === 'TRADE'
+          );
+
+        if (!tradeRoute) {
+          throw new Error(
+            'No TRADE route found for instrument ' + cacheKey
+          );
+        }
+
+        const detailsResponse =
+          await client.getInstrumentDetails({
+            environment: session.environment,
+            accessToken: session.accessToken,
+            tradableInstrumentId: cacheKey,
+            routeId: tradeRoute.id,
+            accNum: account.accNum
+          });
+
+        const details =
+          detailsResponse &&
+          detailsResponse.d
+            ? detailsResponse.d
+            : null;
+
+        if (!details) {
+          throw new Error(
+            'TradeLocker returned no instrument details for ' +
+            cacheKey
+          );
+        }
+
+        const spec = {
+          instrumentId: cacheKey,
+          name: details.name || instrument.name || cacheKey,
+          lotSize: Number(details.lotSize || 0),
+          lotStep: Number(details.lotStep || 0),
+          minLot: Number(details.minLot || 0),
+          maxLot: Number(details.maxLot || 0),
+          quotingCurrency: details.quotingCurrency || null,
+          tickSize:
+            Array.isArray(details.tickSize) &&
+            details.tickSize.length > 0
+              ? Number(details.tickSize[0].tickSize || 0)
+              : 0
+        };
+
+        instrumentDetailsCache.set(cacheKey, spec);
+
+        return spec;
+      }
+
+      // ----------------------------------------------------------
+      // GROUP ORDERS BY POSITION
+      // ----------------------------------------------------------
+
+      const positionGroups = new Map();
+
+      for (const row of rows) {
+        if (!Array.isArray(row)) continue;
+
+        const positionId = row[16];
+
+        if (
+          positionId === null ||
+          positionId === undefined ||
+          String(positionId).trim() === ''
+        ) {
+          continue;
+        }
+
+        const key = String(positionId);
+
+        if (!positionGroups.has(key)) {
+          positionGroups.set(key, []);
+        }
+
+        positionGroups.get(key).push(row);
+      }
+
+      // ----------------------------------------------------------
+      // BUILD COMPLETED TRADES
+      // ----------------------------------------------------------
+
+      const normalizedTrades = [];
+
+      for (const [positionId, group] of positionGroups.entries()) {
+        const filled = group.filter(row =>
+          String(row[6]).toLowerCase() === 'filled'
+        );
+
+        const openingOrders = filled.filter(row =>
+          String(row[15]).toLowerCase() === 'true'
+        );
+
+        if (openingOrders.length !== 1) {
+          continue;
+        }
+
+        const opening = openingOrders[0];
+
+        const closingOrders = filled.filter(row =>
+          String(row[15]).toLowerCase() !== 'true'
+        );
+
+        if (closingOrders.length === 0) {
+          continue;
+        }
+
+        const openingSide =
+          String(opening[4]).toUpperCase();
+
+        const closingSide =
+          openingSide === 'BUY'
+            ? 'SELL'
+            : 'BUY';
+
+        const validClosingOrders =
+          closingOrders.filter(row =>
+            String(row[4]).toUpperCase() === closingSide
+          );
+
+        if (validClosingOrders.length === 0) {
+          continue;
+        }
+
+        // --------------------------------------------------------
+        // INSTRUMENT
+        // --------------------------------------------------------
+
+        const instrumentId =
+          String(opening[1]);
+
+        const instrument =
+          instrumentMap.get(instrumentId);
+
+        const instrumentSpec =
+          await getInstrumentSpec(
+            instrumentId,
+            instrument
+          );
+
+        const symbol =
+          instrumentSpec.name || instrumentId;
+
+        const lotSize =
+          instrumentSpec.lotSize;
+
+        // --------------------------------------------------------
+        // OPENING
+        // --------------------------------------------------------
+
+        const quantity =
+          Number(opening[7] || opening[3] || 0);
+
+        const entry =
+          Number(opening[8] || 0);
+
+        if (
+          !Number.isFinite(quantity) ||
+          quantity <= 0 ||
+          !Number.isFinite(entry)
+        ) {
+          continue;
+        }
+
+        // --------------------------------------------------------
+        // CLOSING
+        // --------------------------------------------------------
+
+        let closingQuantity = 0;
+        let closingValue = 0;
+
+        for (const row of validClosingOrders) {
+          const qty =
+            Number(row[7] || row[3] || 0);
+
+          const price =
+            Number(row[8] || 0);
+
+          if (
+            Number.isFinite(qty) &&
+            Number.isFinite(price) &&
+            qty > 0
+          ) {
+            closingQuantity += qty;
+            closingValue += qty * price;
+          }
+        }
+
+        if (
+          !Number.isFinite(closingQuantity) ||
+          closingQuantity <= 0
+        ) {
+          continue;
+        }
+
+        const exitPrice =
+          closingValue / closingQuantity;
+
+        // --------------------------------------------------------
+        // GROSS PRICE P/L
+        // --------------------------------------------------------
+
+        const grossProfitLossRaw =
+          openingSide === 'BUY'
+            ? (exitPrice - entry) *
+              quantity *
+              lotSize
+            : (entry - exitPrice) *
+              quantity *
+              lotSize;
+
+        const grossProfitLoss =
+          Math.round(
+            (grossProfitLossRaw + Number.EPSILON) * 100
+          ) / 100;
+
+        // --------------------------------------------------------
+        // SL / TP
+        // --------------------------------------------------------
+
+        const stopLoss =
+          opening[17] !== null &&
+          opening[17] !== undefined &&
+          opening[17] !== ''
+            ? Number(opening[17])
+            : null;
+
+        const takeProfit =
+          opening[19] !== null &&
+          opening[19] !== undefined &&
+          opening[19] !== ''
+            ? Number(opening[19])
+            : null;
+
+        // --------------------------------------------------------
+        // TRADE DATE
+        // --------------------------------------------------------
+
+        const tradeDate =
+          opening[13] !== null &&
+          opening[13] !== undefined &&
+          opening[13] !== ''
+            ? new Date(
+                Number(opening[13])
+              ).toISOString()
+            : null;
+
+        normalizedTrades.push({
+          positionId,
+          openingOrderId: String(opening[0]),
+          symbol,
+          direction: openingSide,
+          quantity,
+          entry,
+          exitPrice,
+          stopLoss,
+          takeProfit,
+          tradeDate,
+          lotSize,
+          grossProfitLoss
+        });
+      }
+
+      // ----------------------------------------------------------
+      // IMPORT INTO POSTGRESQL
+      // ----------------------------------------------------------
+
+      let inserted = 0;
+      let skipped = 0;
+
+      for (const trade of normalizedTrades) {
+        const result = await db(
+          `
+          INSERT INTO trades (
+            user_id,
+            account,
+            symbol,
+            direction,
+            entry,
+            stop_loss,
+            take_profit,
+            exit_price,
+            quantity,
+            profit_loss,
+            trade_date,
+            source,
+            external_trade_id,
+            external_position_id,
+            external_account_id,
+            external_imported_at
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+            $11,
+            'tradelocker',
+            $12,
+            $13,
+            $14,
+            NOW()
+          )
+          ON CONFLICT (
+            user_id,
+            external_account_id,
+            external_position_id
+          )
+          WHERE source = 'tradelocker'
+            AND external_position_id IS NOT NULL
+          DO NOTHING
+          RETURNING id
+          `,
+          [
+            userId,
+            account.accountName ||
+              String(account.id),
+            trade.symbol,
+            trade.direction,
+            trade.entry,
+            trade.stopLoss,
+            trade.takeProfit,
+            trade.exitPrice,
+            trade.quantity,
+            trade.grossProfitLoss,
+            trade.tradeDate,
+            trade.openingOrderId,
+            trade.positionId,
+            String(account.id)
+          ]
+        );
+
+        if (
+          result &&
+          result.rows &&
+          result.rows.length > 0
+        ) {
+          inserted++;
+        } else {
+          skipped++;
+        }
+      }
+
+      // ----------------------------------------------------------
+      // RESPONSE
+      // ----------------------------------------------------------
+
+      return res.json({
+        success: true,
+        dryRun: false,
+
+        account: {
+          id: account.id,
+          accNum: account.accNum,
+          name: account.accountName || null
+        },
+
+        historyRows: rows.length,
+        positionGroups: positionGroups.size,
+        normalizedTrades: normalizedTrades.length,
+
+        inserted,
+        skipped,
+
+        message:
+          'TradeLocker trades synced successfully.'
+      });
+
+    } catch (error) {
+      console.error(
+        '[TradeLocker Sync Error]',
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        error: 'TradeLocker session is not connected.'
+        error:
+          error.message ||
+          'TradeLocker sync failed.'
       });
     }
-
-    /*
-     * SAFETY:
-     * This first version is intentionally DRY-RUN only.
-     * It reads sync-preview data but does NOT insert anything
-     * into the trades table.
-     */
-if (
-  !session.selectedAccount ||
-  !session.selectedAccount.id ||
-  session.selectedAccount.accNum === undefined ||
-  session.selectedAccount.accNum === null
-) {
-  return res.status(400).json({
-    success: false,
-    error: 'No TradeLocker account selected'
   });
-}
-const previewResponse = await client.getOrdersHistory({
-  environment: session.environment,
-  accessToken: session.accessToken,
-  accountId: session.selectedAccount.id,
-  accNum: session.selectedAccount.accNum
-});
-
-    const rows =
-      previewResponse &&
-      previewResponse.d &&
-      Array.isArray(previewResponse.d.ordersHistory)
-        ? previewResponse.d.ordersHistory
-        : [];
-
-    res.json({
-      success: true,
-      dryRun: true,
-      historyRows: rows.length,
-      message:
-        'TradeLocker sync dry-run reached successfully. No trades were inserted.'
-    });
-
-  } catch (error) {
-    console.error('[TradeLocker Sync Error]', error);
-
-    res.status(500).json({
-      success: false,
-      error: error.message || 'TradeLocker sync failed.'
-    });
-  }
-});
   // ------------------------------------------------------------
   // DISCONNECT
   // ------------------------------------------------------------
