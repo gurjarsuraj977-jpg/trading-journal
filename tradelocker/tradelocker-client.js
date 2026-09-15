@@ -202,7 +202,59 @@ class TradeLockerClient {
         return Boolean(account.id);
       });
   }
+async getPositions({
+  environment,
+  accessToken,
+  accNum
+}) {
+  if (
+    accNum === null ||
+    accNum === undefined ||
+    isNaN(Number(accNum))
+  ) {
+    throw new Error(
+      'accNum is missing or invalid; cannot query TradeLocker positions.'
+    );
+  }
 
+  const baseUrl = this.getBaseUrl(environment);
+
+  const response = await fetch(
+    baseUrl + '/trade/positions',
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept': 'application/json',
+        'accNum': String(accNum)
+      }
+    }
+  );
+
+  const text = await response.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+      data.error ||
+      (
+        'Failed to fetch TradeLocker positions (' +
+        response.status +
+        ')'
+      )
+    );
+  }
+
+  return data;
+}
   async getOrdersHistory({
     environment,
     accessToken,
