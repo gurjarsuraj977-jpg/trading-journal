@@ -21,8 +21,13 @@ function createTradeLockerRouter({ db, auth }) {
   }
 
   const router = express.Router();
-  const client = new TradeLockerClient();
-  const sessions = new TradeLockerSessionManager();
+const client = new TradeLockerClient();
+
+const sessions =
+  new TradeLockerSessionManager({
+    db,
+    client
+  });
 
   router.use(auth);
 
