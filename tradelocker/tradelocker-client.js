@@ -17,7 +17,7 @@ class TradeLockerClient {
 
     if (!url) {
 throw new Error(
-  `Invalid TradeLocker environment: "${environment}". Must be "demo" or "live".`
+  'Invalid TradeLocker environment: "' + environment + '". Must be "demo" or "live".'
 );
     }
 
