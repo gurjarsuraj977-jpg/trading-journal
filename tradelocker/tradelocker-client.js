@@ -276,103 +276,118 @@ class TradeLockerClient {
     }
 
     /*
-     * Safe diagnostic logging.
-     *
-     * NEVER logs accessToken or refreshToken.
+     * SAFE DIAGNOSTIC DATA ONLY.
+     * Never log accessToken or refreshToken.
      */
-const safeData = {
-  status: response.status,
+    const safeData = {
+      status: response.status,
 
-  contentType,
+      contentType,
 
-  keys:
-    data &&
-    typeof data === 'object'
-      ? Object.keys(data)
-      : [],
+      keys:
+        data &&
+        typeof data === 'object'
+          ? Object.keys(data)
+          : [],
 
-  dType:
-    data &&
-    data.d !== undefined
-      ? Array.isArray(data.d)
-        ? 'array'
-        : typeof data.d
-      : 'missing',
+      dType:
+        data &&
+        data.d !== undefined
+          ? Array.isArray(data.d)
+            ? 'array'
+            : typeof data.d
+          : 'missing',
 
-  dKeys:
-    data &&
-    data.d &&
-    typeof data.d === 'object' &&
-    !Array.isArray(data.d)
-      ? Object.keys(data.d)
-      : [],
-accountDetailsDataType:
-  data &&
-  data.d &&
-  data.d.accountDetailsData !== undefined
-    ? Array.isArray(data.d.accountDetailsData)
-      ? 'array'
-      : typeof data.d.accountDetailsData
-    : 'missing',
+      dKeys:
+        data &&
+        data.d &&
+        typeof data.d === 'object' &&
+        !Array.isArray(data.d)
+          ? Object.keys(data.d)
+          : [],
 
-accountDetailsDataKeys:
-  data &&
-  data.d &&
-  data.d.accountDetailsData &&
-  typeof data.d.accountDetailsData === 'object' &&
-  !Array.isArray(data.d.accountDetailsData)
-    ? Object.keys(data.d.accountDetailsData)
-    : [],
+      dLength:
+        Array.isArray(data?.d)
+          ? data.d.length
+          : null,
 
-accountDetailsDataLength:
-  Array.isArray(data?.d?.accountDetailsData)
-    ? data.d.accountDetailsData.length
-    : null,
-accountDetailsDataPreview:
-  Array.isArray(data?.d?.accountDetailsData)
-    ? data.d.accountDetailsData.map((value, index) => ({
-        index,
-        type: Array.isArray(value)
-          ? 'array'
-          : typeof value,
-        value:
-          value !== null &&
-          typeof value === 'object'
-            ? Object.keys(value)
-            : value
-      }))
-    : []
-  dLength:
-    Array.isArray(data?.d)
-      ? data.d.length
-      : null,
+      accountDetailsDataType:
+        data &&
+        data.d &&
+        data.d.accountDetailsData !== undefined
+          ? Array.isArray(
+              data.d.accountDetailsData
+            )
+              ? 'array'
+              : typeof data.d.accountDetailsData
+          : 'missing',
 
-  sType:
-    data &&
-    data.s !== undefined
-      ? Array.isArray(data.s)
-        ? 'array'
-        : typeof data.s
-      : 'missing',
+      accountDetailsDataKeys:
+        data &&
+        data.d &&
+        data.d.accountDetailsData &&
+        typeof data.d.accountDetailsData === 'object' &&
+        !Array.isArray(data.d.accountDetailsData)
+          ? Object.keys(
+              data.d.accountDetailsData
+            )
+          : [],
 
-  sKeys:
-    data &&
-    data.s &&
-    typeof data.s === 'object' &&
-    !Array.isArray(data.s)
-      ? Object.keys(data.s)
-      : [],
+      accountDetailsDataLength:
+        Array.isArray(
+          data?.d?.accountDetailsData
+        )
+          ? data.d.accountDetailsData.length
+          : null,
 
-  sLength:
-    Array.isArray(data?.s)
-      ? data.s.length
-      : null
-};
+      accountDetailsDataPreview:
+        Array.isArray(
+          data?.d?.accountDetailsData
+        )
+          ? data.d.accountDetailsData.map(
+              (value, index) => ({
+                index,
 
-console.log(
-  '[TRADELOCKER STATE RESPONSE]',
-  safeData
-);
+                type:
+                  Array.isArray(value)
+                    ? 'array'
+                    : typeof value,
+
+                value:
+                  value !== null &&
+                  typeof value === 'object'
+                    ? Object.keys(value)
+                    : value
+              })
+            )
+          : [],
+
+      sType:
+        data &&
+        data.s !== undefined
+          ? Array.isArray(data.s)
+            ? 'array'
+            : typeof data.s
+          : 'missing',
+
+      sKeys:
+        data &&
+        data.s &&
+        typeof data.s === 'object' &&
+        !Array.isArray(data.s)
+          ? Object.keys(data.s)
+          : [],
+
+      sLength:
+        Array.isArray(data?.s)
+          ? data.s.length
+          : null
+    };
+
+    console.log(
+      '[TRADELOCKER STATE RESPONSE]',
+      safeData
+    );
 
 
     if (!response.ok) {
@@ -385,9 +400,8 @@ console.log(
 
 
     /*
-     * If TradeLocker unexpectedly returns
-     * authentication data instead of account state,
-     * stop instead of trying to parse it.
+     * Never attempt to parse authentication
+     * responses as account state.
      */
     if (
       data &&
@@ -403,125 +417,40 @@ console.log(
 
 
     /*
-     * Handle possible response wrappers.
+     * Current TradeLocker response:
+     *
+     * data.d.accountDetailsData
+     *
+     * We are intentionally inspecting the array
+     * before mapping it to balance/equity/etc.
      */
-    const root =
-      data &&
-      data.d !== undefined
-        ? data.d
-        : data;
-
-    let state = root;
+    const accountDetailsData =
+      data?.d?.accountDetailsData;
 
 
     if (
-      root &&
-      typeof root === 'object' &&
-      !Array.isArray(root)
+      !Array.isArray(accountDetailsData)
     ) {
-
-      if (
-        root.state &&
-        typeof root.state === 'object'
-      ) {
-        state = root.state;
-
-      } else if (
-        root.account &&
-        typeof root.account === 'object'
-      ) {
-        state = root.account;
-
-      } else if (
-        root.data &&
-        typeof root.data === 'object'
-      ) {
-        state = root.data;
-      }
+      return {
+        balance: null,
+        equity: null,
+        freeMargin: null,
+        marginUsed: null,
+        unrealizedPl: null
+      };
     }
 
 
-    if (Array.isArray(state)) {
-      state = state[0] || {};
-    }
-
-
-    if (
-      !state ||
-      typeof state !== 'object'
-    ) {
-      state = {};
-    }
-
-
-    const getNumber = (...keys) => {
-
-      for (const key of keys) {
-
-        const value =
-          state[key];
-
-        if (
-          value !== undefined &&
-          value !== null &&
-          value !== ''
-        ) {
-
-          const number =
-            Number(value);
-
-          if (
-            Number.isFinite(number)
-          ) {
-            return number;
-          }
-        }
-      }
-
-      return null;
-    };
-
-
+    /*
+     * TEMPORARY:
+     * We do NOT guess the 26 indexes yet.
+     */
     return {
-
-      balance: getNumber(
-        'balance',
-        'Balance',
-        'accountBalance',
-        'account_balance'
-      ),
-
-      equity: getNumber(
-        'equity',
-        'Equity',
-        'accountEquity',
-        'account_equity'
-      ),
-
-      freeMargin: getNumber(
-        'freeMargin',
-        'free_margin',
-        'FreeMargin',
-        'availableMargin',
-        'available_margin'
-      ),
-
-      marginUsed: getNumber(
-        'marginUsed',
-        'margin_used',
-        'MarginUsed',
-        'usedMargin',
-        'used_margin'
-      ),
-
-      unrealizedPl: getNumber(
-        'unrealizedPl',
-        'unrealizedPL',
-        'unrealizedPnl',
-        'unrealizedPnL',
-        'unrealized_pnl',
-        'UnrealizedPL'
-      )
+      balance: null,
+      equity: null,
+      freeMargin: null,
+      marginUsed: null,
+      unrealizedPl: null
     };
   }
 }
