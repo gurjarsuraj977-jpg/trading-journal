@@ -125,7 +125,38 @@ async function init(){
  CREATE TABLE IF NOT EXISTS accounts(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(100) NOT NULL,starting_balance NUMERIC(20,2) DEFAULT 0,currency VARCHAR(10) DEFAULT 'USD',created_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(user_id,name));
  CREATE TABLE IF NOT EXISTS trades(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,account VARCHAR(100) DEFAULT 'Main Account',symbol VARCHAR(30) NOT NULL,direction VARCHAR(10) NOT NULL CHECK(direction IN('BUY','SELL')),entry NUMERIC(20,8) NOT NULL,stop_loss NUMERIC(20,8),take_profit NUMERIC(20,8),exit_price NUMERIC(20,8),quantity NUMERIC(20,8) DEFAULT 1,risk_amount NUMERIC(20,2) DEFAULT 0,profit_loss NUMERIC(20,2) DEFAULT 0,strategy VARCHAR(100),session VARCHAR(40),notes TEXT,trade_date TIMESTAMPTZ DEFAULT NOW(),created_at TIMESTAMPTZ DEFAULT NOW());`);
  const cols=[["risk_percent","NUMERIC(10,4) DEFAULT 0"],["planned_rr","NUMERIC(10,4) DEFAULT 0"],["actual_r","NUMERIC(10,4) DEFAULT 0"],["setup","VARCHAR(120)"],["entry_reason","TEXT"],["exit_reason","TEXT"],["emotion_before","VARCHAR(50)"],["emotion_after","VARCHAR(50)"],["mistakes","TEXT"],["confidence","INTEGER DEFAULT 0"],["market_condition","VARCHAR(80)"],["screenshot_data","TEXT"],["mfe_r","NUMERIC(10,4) DEFAULT 0"],["mae_r","NUMERIC(10,4) DEFAULT 0"],["max_favorable_price","NUMERIC(20,8)"],["max_adverse_price","NUMERIC(20,8)"],["rule_score","INTEGER DEFAULT 0"],["playbook_id","INTEGER"]];
- for(const [a,b] of cols)await db(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS ${a} ${b}`);
+ for(const [a,b] of cols)await db(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS ${a} ${b}`);\
+ await db(`
+  ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS source VARCHAR(30) NOT NULL DEFAULT 'manual'
+`);
+
+await db(`
+  ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS external_trade_id VARCHAR(128)
+`);
+
+await db(`
+  ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS external_position_id VARCHAR(128)
+`);
+
+await db(`
+  ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS external_account_id VARCHAR(64)
+`);
+
+await db(`
+  ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS external_imported_at TIMESTAMPTZ
+`);
+
+await db(`
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_trades_tradelocker_position
+  ON trades(user_id, external_account_id, external_position_id)
+  WHERE source = 'tradelocker'
+    AND external_position_id IS NOT NULL
+`);
  await db(`CREATE TABLE IF NOT EXISTS playbooks(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(120) NOT NULL,description TEXT DEFAULT '',strategy VARCHAR(120) DEFAULT '',risk_limit NUMERIC(10,4) DEFAULT 1,active BOOLEAN DEFAULT TRUE,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS playbook_rules(id SERIAL PRIMARY KEY,playbook_id INTEGER REFERENCES playbooks(id) ON DELETE CASCADE,label VARCHAR(180) NOT NULL,weight INTEGER DEFAULT 1,required BOOLEAN DEFAULT TRUE,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS missed_trades(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,account VARCHAR(100),symbol VARCHAR(30) NOT NULL,direction VARCHAR(10),trade_date TIMESTAMPTZ DEFAULT NOW(),setup VARCHAR(120),reason VARCHAR(120),potential_r NUMERIC(10,4) DEFAULT 0,potential_pnl NUMERIC(20,2) DEFAULT 0,notes TEXT,created_at TIMESTAMPTZ DEFAULT NOW());
