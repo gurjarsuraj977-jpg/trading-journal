@@ -3,6 +3,16 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GhostTrader V8 — Market Intelligence</title>
+<script>
+(function(){
+  try{
+    var saved=localStorage.getItem('ghosttrader-theme');
+    document.documentElement.setAttribute('data-theme',saved==='light'?'light':'dark');
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -165,6 +175,10 @@
         <option value="year" selected>Last 12 months</option>
       </select>
     </label>
+
+    <button id="themeToggle" class="secondary theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">
+      ☀ <span>Light mode</span>
+    </button>
 
     <button id="openInsights" class="secondary">
       ✦ Insights
