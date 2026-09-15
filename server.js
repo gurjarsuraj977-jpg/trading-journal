@@ -3,6 +3,8 @@ const express=require("express"),path=require("path"),cookieParser=require("cook
 const {createMarketDataRouter}=require("./market-data/market-data-routes");
 const {createMarketDataProviderRouter}=require("./market-data/market-data-provider-routes");
 const {calculateTrade}=require("./utils/trade-calculator");
+const {getSymbolSpec}=require("./utils/symbol-specs");
+const {getCurrencyConversionRate}=require("./market-data/twelve-data");
 const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
 const {createMT5Router}=require("./mt5/mt5-routes");
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
@@ -285,10 +287,10 @@ app.post("/api/trades",auth,async(req,res)=>{
       });
     }
 
-    const ac=await db(
-      "SELECT starting_balance FROM accounts WHERE user_id=$1 AND name=$2",
-      [req.user.id,acct]
-    );
+const ac=await db(
+  "SELECT starting_balance,currency FROM accounts WHERE user_id=$1 AND name=$2",
+  [req.user.id,acct]
+);
 
     if(!ac.rowCount){
       return res.status(400).json({
@@ -319,26 +321,50 @@ app.post("/api/trades",auth,async(req,res)=>{
         ? null
         : n(b.exitPrice,null);
 
-    const quantity=n(b.quantity,1);
+const quantity=n(b.quantity,1);
 
-    /*
-     * IMPORTANT:
-     * Backend calculation is now authoritative.
-     * Frontend-calculated values are NOT trusted.
-     */
-    const calculated=calculateTrade({
-      symbol:s,
-      direction:d,
-      entry,
-      stopLoss,
-      takeProfit,
-      exitPrice,
-      quantity,
-      accountBalance:n(
-        ac.rows[0].starting_balance,
-        0
-      )
-    });
+const accountCurrency=String(
+  ac.rows[0].currency||"USD"
+).trim().toUpperCase();
+
+const symbolSpec=getSymbolSpec(s);
+
+let pnlConversionRate=null;
+
+if(
+  symbolSpec.known &&
+  symbolSpec.pnlCurrency &&
+  accountCurrency &&
+  symbolSpec.pnlCurrency.toUpperCase()!==accountCurrency
+){
+  const conversion=await getCurrencyConversionRate({
+    fromCurrency:symbolSpec.pnlCurrency,
+    toCurrency:accountCurrency
+  });
+
+  pnlConversionRate=conversion.rate;
+}
+
+/*
+ * IMPORTANT:
+ * Backend calculation is now authoritative.
+ * Frontend-calculated values are NOT trusted.
+ */
+const calculated=calculateTrade({
+  symbol:s,
+  direction:d,
+  entry,
+  stopLoss,
+  takeProfit,
+  exitPrice,
+  quantity,
+  accountBalance:n(
+    ac.rows[0].starting_balance,
+    0
+  ),
+  accountCurrency,
+  pnlConversionRate
+});
 
     let mfeR=n(b.mfeR);
     let maeR=n(b.maeR);
