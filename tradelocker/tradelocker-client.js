@@ -202,174 +202,167 @@ class TradeLockerClient {
         return Boolean(account.id);
       });
   }
-async getPositions({
-  environment,
-  accessToken,
-  accNum,
-  accountId
-}) {
-  if (
-    accNum === null ||
-    accNum === undefined ||
-    isNaN(Number(accNum))
-  ) {
-    throw new Error(
-      'accNum is missing or invalid; cannot query TradeLocker positions.'
-    );
-  }
 
-  if (
-    accountId === null ||
-    accountId === undefined ||
-    String(accountId).trim() === ''
-  ) {
-    throw new Error(
-      'accountId is missing or invalid; cannot query TradeLocker positions.'
-    );
-  }
-
-  const baseUrl = this.getBaseUrl(environment);
-  
-const endpoint =
-  baseUrl +
-  '/trade/accounts/' +
-  encodeURIComponent(String(accountId)) +
-  '/positions';
-
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      'Authorization': 'Bearer ' + accessToken,
-      'Accept': 'application/json',
-      'accNum': String(accNum)
-    }
-  });
-
-  const text = await response.text();
-
-  console.log(
-    '[TradeLocker Positions Debug]',
-    JSON.stringify({
-      endpoint,
-      status: response.status,
-      response: text
-    })
-  );
-
-  let data = {};
-
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (error) {
-    data = {
-      raw: text
-    };
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data.message ||
-      data.error ||
-      data.raw ||
-      (
-        'Failed to fetch TradeLocker positions (' +
-        response.status +
-        ')'
-      )
-    );
-  }
-
-  return data;
-}
   async getPositions({
-  environment,
-  accessToken,
-  accNum,
-  accountId
-}) {
-  // your existing getPositions code...
-
-  return data;
-}
-
-
-// ADD THIS BELOW getPositions()
-
-async getFilledOrders({
-  environment,
-  accessToken,
-  accountId,
-  accNum
-}) {
-  if (
-    accountId === null ||
-    accountId === undefined ||
-    String(accountId).trim() === ''
-  ) {
-    throw new Error(
-      'accountId is missing or invalid; cannot query TradeLocker filled orders.'
-    );
-  }
-
-  if (
-    accNum === null ||
-    accNum === undefined ||
-    isNaN(Number(accNum))
-  ) {
-    throw new Error(
-      'accNum is missing or invalid; cannot query TradeLocker filled orders.'
-    );
-  }
-
-  const baseUrl = this.getBaseUrl(environment);
-
-  const endpoint =
-    baseUrl +
-    '/trade/accounts/' +
-    encodeURIComponent(String(accountId)) +
-    '/executions';
-
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      'Authorization': 'Bearer ' + accessToken,
-      'Accept': 'application/json',
-      'accNum': String(accNum)
+    environment,
+    accessToken,
+    accNum,
+    accountId
+  }) {
+    if (
+      accNum === null ||
+      accNum === undefined ||
+      isNaN(Number(accNum))
+    ) {
+      throw new Error(
+        'accNum is missing or invalid; cannot query TradeLocker positions.'
+      );
     }
-  });
 
-  const text = await response.text();
+    if (
+      accountId === null ||
+      accountId === undefined ||
+      String(accountId).trim() === ''
+    ) {
+      throw new Error(
+        'accountId is missing or invalid; cannot query TradeLocker positions.'
+      );
+    }
 
-  console.log(
-    '[TradeLocker Filled Orders Debug]',
-    JSON.stringify({
-      endpoint,
-      status: response.status,
-      response: text
-    })
-  );
+    const baseUrl = this.getBaseUrl(environment);
 
-  let data = {};
+    const endpoint =
+      baseUrl +
+      '/trade/accounts/' +
+      encodeURIComponent(String(accountId)) +
+      '/positions';
 
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (error) {
-    data = {
-      raw: text
-    };
-  }
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept': 'application/json',
+        'accNum': String(accNum)
+      }
+    });
 
-  if (!response.ok) {
-    throw new Error(
-      data.message ||
-      data.error ||
-      data.raw ||
-      ('Failed to fetch TradeLocker filled orders (' + response.status + ')')
+    const text = await response.text();
+
+    console.log(
+      '[TradeLocker Positions Debug]',
+      JSON.stringify({
+        endpoint,
+        status: response.status,
+        response: text
+      })
     );
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = {
+        raw: text
+      };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        data.raw ||
+        (
+          'Failed to fetch TradeLocker positions (' +
+          response.status +
+          ')'
+        )
+      );
+    }
+
+    return data;
   }
 
-  return data;
-}
+  async getFilledOrders({
+    environment,
+    accessToken,
+    accountId,
+    accNum
+  }) {
+    if (
+      accountId === null ||
+      accountId === undefined ||
+      String(accountId).trim() === ''
+    ) {
+      throw new Error(
+        'accountId is missing or invalid; cannot query TradeLocker filled orders.'
+      );
+    }
+
+    if (
+      accNum === null ||
+      accNum === undefined ||
+      isNaN(Number(accNum))
+    ) {
+      throw new Error(
+        'accNum is missing or invalid; cannot query TradeLocker filled orders.'
+      );
+    }
+
+    const baseUrl = this.getBaseUrl(environment);
+
+    const endpoint =
+      baseUrl +
+      '/trade/accounts/' +
+      encodeURIComponent(String(accountId)) +
+      '/executions';
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept': 'application/json',
+        'accNum': String(accNum)
+      }
+    });
+
+    const text = await response.text();
+
+    console.log(
+      '[TradeLocker Filled Orders Debug]',
+      JSON.stringify({
+        endpoint,
+        status: response.status,
+        response: text
+      })
+    );
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = {
+        raw: text
+      };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        data.raw ||
+        (
+          'Failed to fetch TradeLocker filled orders (' +
+          response.status +
+          ')'
+        )
+      );
+    }
+
+    return data;
+  }
+
   async getOrdersHistory({
     environment,
     accessToken,
@@ -463,71 +456,71 @@ async getFilledOrders({
     return data;
   }
 
-async getTradeConfig({
-  environment,
-  accessToken,
-  accNum
-}) {
-  if (
-    accNum === null ||
-    accNum === undefined ||
-    isNaN(Number(accNum))
-  ) {
-    throw new Error(
-      'accNum is missing or invalid; cannot query TradeLocker config.'
-    );
-  }
-
-  const baseUrl = this.getBaseUrl(environment);
-
-  const response = await fetch(
-    baseUrl + '/trade/config',
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + accessToken,
-        'Accept': 'application/json',
-        'accNum': String(accNum)
-      }
+  async getTradeConfig({
+    environment,
+    accessToken,
+    accNum
+  }) {
+    if (
+      accNum === null ||
+      accNum === undefined ||
+      isNaN(Number(accNum))
+    ) {
+      throw new Error(
+        'accNum is missing or invalid; cannot query TradeLocker config.'
+      );
     }
-  );
 
-  const text = await response.text();
+    const baseUrl = this.getBaseUrl(environment);
 
-  let data = {};
+    const response = await fetch(
+      baseUrl + '/trade/config',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Accept': 'application/json',
+          'accNum': String(accNum)
+        }
+      }
+    );
 
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (error) {
-    data = {};
-  }
+    const text = await response.text();
 
-  if (!response.ok) {
-    throw new Error(
-      data.message ||
-      data.error ||
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        (
+          'Failed to fetch TradeLocker config (' +
+          response.status +
+          ')'
+        )
+      );
+    }
+
+    if (
+      data &&
       (
-        'Failed to fetch TradeLocker config (' +
-        response.status +
-        ')'
+        data.accessToken ||
+        data.refreshToken
       )
-    );
-  }
+    ) {
+      throw new Error(
+        'TradeLocker returned authentication data instead of config.'
+      );
+    }
 
-  if (
-    data &&
-    (
-      data.accessToken ||
-      data.refreshToken
-    )
-  ) {
-    throw new Error(
-      'TradeLocker returned authentication data instead of config.'
-    );
+    return data;
   }
-
-  return data;
-}
 
   async getAccountState({
     environment,
