@@ -202,6 +202,7 @@ class TradeLockerClient {
         return Boolean(account.id);
       });
   }
+
   async getOrdersHistory({
     environment,
     accessToken,
@@ -294,6 +295,61 @@ class TradeLockerClient {
 
     return data;
   }
+
+  async getTradeConfig({
+    environment,
+    accessToken
+  }) {
+    const baseUrl = this.getBaseUrl(environment);
+
+    const response = await fetch(
+      baseUrl + '/trade/config',
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Accept': 'application/json'
+        }
+      }
+    );
+
+    const text = await response.text();
+
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (error) {
+      data = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        (
+          'Failed to fetch TradeLocker config (' +
+          response.status +
+          ')'
+        )
+      );
+    }
+
+    if (
+      data &&
+      (
+        data.accessToken ||
+        data.refreshToken
+      )
+    ) {
+      throw new Error(
+        'TradeLocker returned authentication data instead of config.'
+      );
+    }
+
+    return data;
+  }
+
   async getAccountState({
     environment,
     accessToken,
