@@ -1310,7 +1310,37 @@ trades.push({
       }
 
       const account = session.selectedAccount;
+// ----------------------------------------------------------
+// ENSURE TRADELOCKER GENERAL ACCOUNT EXISTS
+// ----------------------------------------------------------
 
+const tradeLockerAccountName =
+  account.accountName ||
+  String(account.id);
+
+await db(
+  `
+  INSERT INTO accounts (
+    user_id,
+    name,
+    starting_balance,
+    currency
+  )
+  VALUES (
+    $1,
+    $2,
+    0,
+    $3
+  )
+  ON CONFLICT (user_id, name)
+  DO NOTHING
+  `,
+  [
+    userId,
+    tradeLockerAccountName,
+    account.currency || 'USD'
+  ]
+);
       // ----------------------------------------------------------
       // GET TRADELOCKER HISTORY
       // ----------------------------------------------------------
@@ -1705,8 +1735,7 @@ trades.push({
           `,
           [
             userId,
-            account.accountName ||
-              String(account.id),
+tradeLockerAccountName,
             trade.symbol,
             trade.direction,
             trade.entry,
