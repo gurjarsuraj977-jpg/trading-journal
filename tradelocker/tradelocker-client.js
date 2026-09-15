@@ -306,7 +306,28 @@ const safeData = {
     !Array.isArray(data.d)
       ? Object.keys(data.d)
       : [],
+accountDetailsDataType:
+  data &&
+  data.d &&
+  data.d.accountDetailsData !== undefined
+    ? Array.isArray(data.d.accountDetailsData)
+      ? 'array'
+      : typeof data.d.accountDetailsData
+    : 'missing',
 
+accountDetailsDataKeys:
+  data &&
+  data.d &&
+  data.d.accountDetailsData &&
+  typeof data.d.accountDetailsData === 'object' &&
+  !Array.isArray(data.d.accountDetailsData)
+    ? Object.keys(data.d.accountDetailsData)
+    : [],
+
+accountDetailsDataLength:
+  Array.isArray(data?.d?.accountDetailsData)
+    ? data.d.accountDetailsData.length
+    : null,
   dLength:
     Array.isArray(data?.d)
       ? data.d.length
