@@ -205,7 +205,8 @@ class TradeLockerClient {
 async getPositions({
   environment,
   accessToken,
-  accNum
+  accNum,
+  accountId
 }) {
   if (
     accNum === null ||
@@ -214,6 +215,16 @@ async getPositions({
   ) {
     throw new Error(
       'accNum is missing or invalid; cannot query TradeLocker positions.'
+    );
+  }
+
+  if (
+    accountId === null ||
+    accountId === undefined ||
+    String(accountId).trim() === ''
+  ) {
+    throw new Error(
+      'accountId is missing or invalid; cannot query TradeLocker positions.'
     );
   }
 
