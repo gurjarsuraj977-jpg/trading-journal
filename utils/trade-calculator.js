@@ -191,9 +191,10 @@ const conversion = resolveConversionRate({
 const conversionRate = conversion.rate;
 
   const result = {
-    riskAmount: 0,
-    riskPercent: 0,
-    profitLoss: 0,
+riskAmount: 0,
+riskPercent: 0,
+riskLevel: "UNKNOWN",
+profitLoss: 0,
     potentialProfit: 0,
     potentialLoss: 0,
     plannedRr: 0,
@@ -496,16 +497,36 @@ if (conversion.required && !conversion.valid) {
       result.riskAmount = 0;
     }
 
-    if (
-      balance > 0 &&
-      result.riskAmount > 0
-    ) {
-      result.riskPercent = round(
-        (result.riskAmount / balance) * 100,
-        4
-      );
-    }
+if (
+  balance > 0 &&
+  result.riskAmount > 0
+) {
+  result.riskPercent = round(
+    (result.riskAmount / balance) * 100,
+    4
+  );
+
+  /*
+   * ---------------------------------------------------------
+   * RISK SAFETY CLASSIFICATION
+   * ---------------------------------------------------------
+   *
+   * <= 1%       = NORMAL
+   * >1% to 2%   = ELEVATED
+   * >2% to 5%   = HIGH
+   * >5%         = CRITICAL
+   */
+
+  if (result.riskPercent <= 1) {
+    result.riskLevel = "NORMAL";
+  } else if (result.riskPercent <= 2) {
+    result.riskLevel = "ELEVATED";
+  } else if (result.riskPercent <= 5) {
+    result.riskLevel = "HIGH";
+  } else {
+    result.riskLevel = "CRITICAL";
   }
+}
 
   /*
    * ---------------------------------------------------------
