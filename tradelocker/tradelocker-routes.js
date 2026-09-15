@@ -1217,6 +1217,27 @@ const grossProfitLoss =
     (grossProfitLossRaw + Number.EPSILON) * 100
   ) / 100;
 
+const stopLoss =
+  opening[17] !== null &&
+  opening[17] !== undefined &&
+  opening[17] !== ''
+    ? Number(opening[17])
+    : null;
+
+const takeProfit =
+  opening[19] !== null &&
+  opening[19] !== undefined &&
+  opening[19] !== ''
+    ? Number(opening[19])
+    : null;
+
+const tradeDate =
+  opening[13] !== null &&
+  opening[13] !== undefined &&
+  opening[13] !== ''
+    ? new Date(Number(opening[13])).toISOString()
+    : null;
+
 trades.push({
   positionId,
   symbol,
@@ -1224,6 +1245,9 @@ trades.push({
   quantity,
   entry,
   exitPrice,
+  stopLoss,
+  takeProfit,
+  tradeDate,
   lotSize,
   grossProfitLoss,
   openingOrderId: opening[0],
