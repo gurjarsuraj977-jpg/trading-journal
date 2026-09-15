@@ -2266,270 +2266,193 @@ $('#refreshInsights').onclick=()=>
    ========================================================= */
 
 async function loadTradeLockerConnection(){
-
   const status=$("#tradelockerStatus");
   const message=$("#tradelockerMessage");
-
   if(!status) return;
 
   try{
+    const d=await api('/api/tradelocker/status');
 
-    const d=await api('/api/tradelocker/connection');
-
-    if(d.connection){
-
-      const c=d.connection;
-
-      $("#tlEnvironment").value=
-        c.environment||'live';
-
-      $("#tlServer").value=
-        c.server||'';
-
-      $("#tlAccountId").value=
-        c.account_id||'';
-
-      /*
-       * Tokens are intentionally not returned by the backend.
-       * They remain stored server-side.
-       */
-      $("#tlAccessToken").value='';
-      $("#tlRefreshToken").value='';
-
+    if(d.connected){
       setTradeLockerStatus(true);
 
-      if(message)
-        message.textContent=
-          'TradeLocker connection is configured for this account.';
+      if($("#tlEnvironment") && d.environment){
+        $("#tlEnvironment").value=d.environment;
+      }
 
+      if($("#tlServer") && d.server){
+        $("#tlServer").value=d.server;
+      }
+
+      if($("#tlEmail")){
+        $("#tlEmail").value='';
+      }
+
+      if($("#tlPassword")){
+        $("#tlPassword").value='';
+      }
+
+      if(message){
+        message.textContent='TradeLocker is connected.';
+      }
     }else{
-
       setTradeLockerStatus(false);
 
-      if(message)
-        message.textContent=
-          'No TradeLocker connection configured yet.';
-
+      if(message){
+        if(d.status==='reconnect_required'){
+          message.textContent='TradeLocker session expired. Please reconnect.';
+        }else{
+          message.textContent='No TradeLocker connection configured yet.';
+        }
+      }
     }
-
   }catch(e){
-
-    console.warn(
-      'TradeLocker connection check:',
-      e.message
-    );
-
+    console.warn('TradeLocker status check:',e.message);
     setTradeLockerStatus(false);
 
+    if(message){
+      message.textContent='Unable to check TradeLocker connection.';
+    }
   }
-
 }
-
 
 function setTradeLockerStatus(connected){
-
   const status=$("#tradelockerStatus");
-
-  if(!status) return;
+  if(!status)return;
 
   if(connected){
-
-    status.innerHTML=
-      '<span></span> Connected';
-
+    status.innerHTML='<span></span> Connected';
     status.classList.add('connected');
-
   }else{
-
-    status.innerHTML=
-      '<span></span> Not connected';
-
+    status.innerHTML='<span></span> Not connected';
     status.classList.remove('connected');
-
   }
-
 }
 
-
 async function connectTradeLocker(){
-
   const btn=$("#connectTradeLocker");
-
   const message=$("#tradelockerMessage");
 
   if(!btn)return;
 
-  const environment=
-    $("#tlEnvironment").value;
+  const environment=$("#tlEnvironment").value;
+  const server=$("#tlServer").value.trim();
+  const email=$("#tlEmail").value.trim();
+  const password=$("#tlPassword").value;
 
-  const server=
-    $("#tlServer").value.trim();
-
-  const accountId=
-    $("#tlAccountId").value.trim();
-
-  const accessToken=
-    $("#tlAccessToken").value.trim();
-
-  const refreshToken=
-    $("#tlRefreshToken").value.trim();
-
-
-  if(!server)
+  if(!server){
     throw Error('TradeLocker server is required.');
+  }
 
-  if(!accountId)
-    throw Error('TradeLocker account ID is required.');
+  if(!email){
+    throw Error('TradeLocker email is required.');
+  }
 
-  if(!accessToken)
-    throw Error('TradeLocker access token is required.');
-
+  if(!password){
+    throw Error('TradeLocker password is required.');
+  }
 
   btn.disabled=true;
 
-  if(message)
-    message.textContent=
-      'Connecting to TradeLocker...';
-
+  if(message){
+    message.textContent='Connecting to TradeLocker...';
+  }
 
   try{
-
-    const d=await api(
-      '/api/tradelocker/connect',
-      {
-        method:'POST',
-
-        body:JSON.stringify({
-
-          environment,
-          server,
-          accountId,
-          accessToken,
-          refreshToken
-
-        })
-      }
-    );
-
+    const d=await api('/api/tradelocker/connect',{
+      method:'POST',
+      body:JSON.stringify({
+        environment,
+        server,
+        email,
+        password
+      })
+    });
 
     setTradeLockerStatus(true);
 
-    /*
-     * Clear sensitive token fields after successful save.
-     */
-    $("#tlAccessToken").value='';
-    $("#tlRefreshToken").value='';
-
+    $("#tlPassword").value='';
 
     if(message){
-
-      message.textContent=
-        d.message||
-        'TradeLocker connected successfully.';
-
+      message.textContent=d.message||'TradeLocker connected successfully.';
     }
 
+    /*
+      The backend may return the available accounts.
+      We will add account selection/synchronization UI
+      in the next step.
+    */
+    console.log('TradeLocker accounts:',d.accounts||[]);
+    console.log('TradeLocker selected account:',d.selectedAccount||null);
+
   }finally{
-
     btn.disabled=false;
-
   }
-
 }
 
-
 async function disconnectTradeLocker(){
-
   const btn=$("#disconnectTradeLocker");
-
   const message=$("#tradelockerMessage");
 
-  if(!confirm(
-    'Disconnect this TradeLocker account?'
-  ))return;
+  if(!confirm('Disconnect this TradeLocker account?')){
+    return;
+  }
 
-
-  if(btn)
+  if(btn){
     btn.disabled=true;
-
+  }
 
   try{
-
-    const d=await api(
-      '/api/tradelocker/disconnect',
-      {
-        method:'POST'
-      }
-    );
-
+    const d=await api('/api/tradelocker/disconnect',{
+      method:'POST'
+    });
 
     setTradeLockerStatus(false);
 
-    $("#tlServer").value='';
-    $("#tlAccountId").value='';
-    $("#tlAccessToken").value='';
-    $("#tlRefreshToken").value='';
+    if($("#tlServer")){
+      $("#tlServer").value='';
+    }
 
+    if($("#tlEmail")){
+      $("#tlEmail").value='';
+    }
+
+    if($("#tlPassword")){
+      $("#tlPassword").value='';
+    }
 
     if(message){
-
-      message.textContent=
-        d.message||
-        'TradeLocker disconnected.';
-
+      message.textContent=d.message||'TradeLocker disconnected.';
     }
 
   }finally{
-
-    if(btn)
+    if(btn){
       btn.disabled=false;
-
+    }
   }
-
 }
 
+$("#connectTradeLocker")?.addEventListener('click',async()=>{
+  try{
+    await connectTradeLocker();
+  }catch(e){
+    showError(e.message);
 
-$("#connectTradeLocker")?.addEventListener(
-  'click',
-  async()=>{
+    const message=$("#tradelockerMessage");
 
-    try{
-
-      await connectTradeLocker();
-
-    }catch(e){
-
-      showError(e.message);
-
-      const message=
-        $("#tradelockerMessage");
-
-      if(message)
-        message.textContent=
-          e.message;
-
+    if(message){
+      message.textContent=e.message;
     }
-
   }
-);
+});
 
-
-$("#disconnectTradeLocker")?.addEventListener(
-  'click',
-  async()=>{
-
-    try{
-
-      await disconnectTradeLocker();
-
-    }catch(e){
-
-      showError(e.message);
-
-    }
-
+$("#disconnectTradeLocker")?.addEventListener('click',async()=>{
+  try{
+    await disconnectTradeLocker();
+  }catch(e){
+    showError(e.message);
   }
-);
+});
 
 /* =========================================================
    V8.3 MARKET CHART
