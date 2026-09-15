@@ -993,7 +993,34 @@ router.get('/history', async (req, res) => {
       accountId: account.id,
       accNum: account.accNum
     });
+const instrumentsResponse = await client.getInstruments({
+  environment: session.environment,
+  accessToken: session.accessToken,
+  accountId: account.id,
+  accNum: account.accNum
+});
 
+const instrumentRows =
+  instrumentsResponse &&
+  instrumentsResponse.d &&
+  Array.isArray(instrumentsResponse.d.instruments)
+    ? instrumentsResponse.d.instruments
+    : [];
+
+const instrumentMap = new Map();
+
+for (const instrument of instrumentRows) {
+  if (
+    instrument &&
+    instrument.tradableInstrumentId !== undefined &&
+    instrument.tradableInstrumentId !== null
+  ) {
+    instrumentMap.set(
+      String(instrument.tradableInstrumentId),
+      instrument
+    );
+  }
+}
 const rows =
   history &&
   history.d &&
