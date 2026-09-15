@@ -232,14 +232,15 @@ const sessions =
           ? accounts[0]
           : null;
 
-      sessions.setSession(userId, {
-        environment: envClean,
-        server: srvClean,
-        accessToken: authData.accessToken,
-        refreshToken: authData.refreshToken,
-        accounts,
-        selectedAccount: initialAccount
-      });
+await sessions.setSession(userId, {
+  environment: envClean,
+  server: srvClean,
+  accessToken: authData.accessToken,
+  refreshToken: authData.refreshToken,
+  accounts,
+  selectedAccount: initialAccount,
+  email: email.trim()
+});
 
       await db(
         `INSERT INTO tradelocker_connections (
