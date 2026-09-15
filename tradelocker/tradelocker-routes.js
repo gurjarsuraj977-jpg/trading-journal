@@ -668,6 +668,73 @@ return res.json({
     });
   }
 });
+  router.get('/instrument-details/:tradableInstrumentId/:routeId', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    let session = sessions.getSession(userId);
+
+    if (!session || !session.accessToken) {
+      session = await sessions.restoreSession(userId);
+    }
+
+    if (!session || !session.accessToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'TradeLocker session not connected'
+      });
+    }
+
+    const account = session.selectedAccount;
+
+    if (
+      !account ||
+      account.accNum === undefined ||
+      account.accNum === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'No TradeLocker account selected'
+      });
+    }
+
+    const tradableInstrumentId =
+      req.params.tradableInstrumentId;
+
+    const routeId =
+      req.params.routeId;
+
+    const data = await client.getInstrumentDetails({
+      environment: session.environment,
+      accessToken: session.accessToken,
+      tradableInstrumentId,
+      routeId,
+      accNum: account.accNum
+    });
+
+    return res.json({
+      success: true,
+      account: {
+        id: account.id,
+        accNum: account.accNum
+      },
+      tradableInstrumentId,
+      routeId,
+      instrument: data
+    });
+
+  } catch (error) {
+    console.error(
+      '[TradeLocker Instrument Details Error]:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
   router.get('/positions', async (req, res) => {
   try {
     const userId = req.user.id;
