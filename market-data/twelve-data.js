@@ -280,10 +280,75 @@ async function fetchLatestPrice(symbol) {
     price
   };
 }
+async function getCurrencyConversionRate({
+  fromCurrency,
+  toCurrency
+}) {
+  const from = String(fromCurrency || "")
+    .trim()
+    .toUpperCase();
+
+  const to = String(toCurrency || "")
+    .trim()
+    .toUpperCase();
+
+  if (!from || !to) {
+    throw new Error(
+      "Both source and target currencies are required."
+    );
+  }
+
+  if (from === to) {
+    return {
+      from_currency: from,
+      to_currency: to,
+      rate: 1,
+      symbol: `${from}${to}`,
+      inverted: false
+    };
+  }
+
+  const directSymbol = `${from}${to}`;
+
+  try {
+    const direct = await fetchLatestPrice(directSymbol);
+
+    return {
+      from_currency: from,
+      to_currency: to,
+      rate: direct.price,
+      symbol: direct.provider_symbol,
+      inverted: false
+    };
+  } catch (directError) {
+    const inverseSymbol = `${to}${from}`;
+
+    try {
+      const inverse = await fetchLatestPrice(inverseSymbol);
+
+      if (!inverse.price || inverse.price <= 0) {
+        throw new Error("Invalid inverse currency price.");
+      }
+
+      return {
+        from_currency: from,
+        to_currency: to,
+        rate: 1 / inverse.price,
+        symbol: inverse.provider_symbol,
+        inverted: true
+      };
+    } catch {
+      throw new Error(
+        `Unable to obtain ${from}/${to} currency conversion rate.`
+      );
+    }
+  }
+}
 module.exports = {
   fetchTimeSeries,
   fetchLatestCandles,
   fetchLatestPrice,
+  getCurrencyConversionRate,
   normalizeSymbol,
   normalizeTimeframe,
   providerSymbol,
