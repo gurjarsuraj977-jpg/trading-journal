@@ -327,7 +327,14 @@ class TradeLockerClient {
       configD?.accountDetailsData ||
       null;
 
-
+console.log(
+  '[TRADELOCKER ACCOUNT CONFIG COLUMNS]',
+  JSON.stringify(
+    configD?.accountDetailsConfig?.columns || [],
+    null,
+    2
+  )
+);
     if (
       accountConfig &&
       typeof accountConfig === 'object'
