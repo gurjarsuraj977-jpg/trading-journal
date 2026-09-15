@@ -1344,6 +1344,98 @@
     </button>
   </div>
 
+  <!-- TradeLocker Accounts -->
+  <div id="tradelockerAccountsBox" style="display:none;margin-top:24px;">
+
+    <div class="panel-head" style="margin-bottom:14px;">
+      <div>
+        <span class="eyebrow">ACCOUNT</span>
+        <h3>TradeLocker Account</h3>
+      </div>
+    </div>
+
+    <label>
+      Select Account
+      <select id="tlAccountSelect">
+        <option value="">Select an account</option>
+      </select>
+    </label>
+
+    <div
+      id="tradelockerAccountDetails"
+      class="form-grid"
+      style="margin-top:16px;"
+    >
+      <div>
+        <span class="muted">Account ID</span>
+        <strong id="tlAccountIdValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Account Number</span>
+        <strong id="tlAccNumValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Account Name</span>
+        <strong id="tlAccountNameValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Currency</span>
+        <strong id="tlCurrencyValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Status</span>
+        <strong id="tlAccountStatusValue">—</strong>
+      </div>
+    </div>
+
+    <!-- Account State -->
+    <div
+      id="tradelockerState"
+      class="form-grid"
+      style="margin-top:18px;"
+    >
+      <div>
+        <span class="muted">Balance</span>
+        <strong id="tlBalanceValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Equity</span>
+        <strong id="tlEquityValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Free Margin</span>
+        <strong id="tlFreeMarginValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Margin Used</span>
+        <strong id="tlMarginUsedValue">—</strong>
+      </div>
+
+      <div>
+        <span class="muted">Unrealized P/L</span>
+        <strong id="tlUnrealizedPlValue">—</strong>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:18px;">
+      <button
+        id="refreshTradeLockerState"
+        class="secondary"
+        type="button"
+      >
+        Refresh Account
+      </button>
+    </div>
+
+  </div>
+
   <div
     id="tradelockerMessage"
     class="muted"
