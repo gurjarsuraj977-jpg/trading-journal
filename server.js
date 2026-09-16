@@ -867,12 +867,30 @@ app.post("/api/import",auth,async(req,res)=>{
         ac.rows=main.rows;
       }
 
-      const accountBalance=n(ac.rows[0].starting_balance,0);
-      const accountCurrency=String(
-        ac.rows[0].currency||"USD"
-      ).trim().toUpperCase();
+const accountBalance=n(ac.rows[0].starting_balance,0);
+const accountCurrency=String(
+  ac.rows[0].currency||"USD"
+).trim().toUpperCase();
 
-      const entry=n(b.entry??b.Entry,null);
+const symbolSpec=getSymbolSpec(symbol);
+
+let pnlConversionRate=null;
+
+if(
+  symbolSpec.known &&
+  symbolSpec.pnlCurrency &&
+  accountCurrency &&
+  symbolSpec.pnlCurrency.toUpperCase()!==accountCurrency
+){
+  const conversion=await getCurrencyConversionRate({
+    fromCurrency:symbolSpec.pnlCurrency,
+    toCurrency:accountCurrency
+  });
+
+  pnlConversionRate=conversion.rate;
+}
+
+const entry=n(b.entry??b.Entry,null);
       const stopLoss=n(
         b.stop_loss??b.stopLoss??b.SL,
         null
