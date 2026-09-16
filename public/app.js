@@ -786,7 +786,7 @@ function table(t,full=true){
                   ${E(x.direction)}
                 </span>
               </td>
-<td>${E(x.account)}</td><td><b>${M(x.risk_amount)}</b></td><td class="${C(x.profit_loss)}">
+<td>${E(x.account)}</td> <td>   <b>${M(x.risk_amount)}</b>   <small class="risk-level ${String(x.risk_level || "UNKNOWN").toLowerCase()}">     ${E(x.risk_level || "UNKNOWN")}   </small> </td> <td class="${C(x.profit_loss)}">
                 <b>${M(x.profit_loss)}</b>
               </td>
               <td>
