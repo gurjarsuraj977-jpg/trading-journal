@@ -905,17 +905,18 @@ const entry=n(b.entry??b.Entry,null);
       );
       const quantity=Number(b.quantity??b.Quantity??b.qty);
 
-      const calculated=calculateTrade({
-        symbol,
-        direction,
-        entry,
-        stopLoss,
-        takeProfit,
-        exitPrice,
-        quantity,
-        accountBalance,
-        accountCurrency
-      });
+const calculated=calculateTrade({
+  symbol,
+  direction,
+  entry,
+  stopLoss,
+  takeProfit,
+  exitPrice,
+  quantity,
+  accountBalance,
+  accountCurrency,
+  pnlConversionRate
+});
 
       if(calculated.error)
         continue;
