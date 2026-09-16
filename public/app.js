@@ -1927,13 +1927,6 @@ $('#simResult').innerHTML=
       'Add MFE/MAE values to your trades before simulating.'
     }
   </p>`;
-        ${
-          d.usable?
-          `Scenario used target +${Number(d.targetR).toFixed(2)}R and stop -${Math.abs(Number(d.stopR)).toFixed(2)}R.`:
-          'Add MFE/MAE values to your trades before simulating.'
-        }
-      </p>`;
-
     await api(
       '/api/backtests',
       {
