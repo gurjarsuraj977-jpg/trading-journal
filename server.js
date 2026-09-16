@@ -398,7 +398,12 @@ const calculated=calculateTrade({
   accountCurrency,
   pnlConversionRate
 });
-
+if(calculated.error){
+  return res.status(400).json({
+    error: calculated.error,
+    calculationStatus: calculated.calculationStatus || "INVALID"
+  });
+}
     let mfeR=n(b.mfeR);
     let maeR=n(b.maeR);
 
