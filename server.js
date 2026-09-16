@@ -820,7 +820,122 @@ app.post("/api/missed",auth,async(req,res)=>{try{const r=await db("INSERT INTO m
 app.delete("/api/missed/:id",auth,async(req,res)=>{try{const r=await db("DELETE FROM missed_trades WHERE id=$1 AND user_id=$2",[Number(req.params.id),req.user.id]);if(!r.rowCount)return res.status(404).json({error:"Missed trade not found."});res.json({ok:true})}catch(e){res.status(500).json({error:"Could not delete missed trade."})}});
 app.get("/api/execution",auth,async(req,res)=>{try{let w=["user_id=$1"],v=[req.user.id];if(req.query.account){v.push(String(req.query.account));w.push(`account=$${v.length}`)}const r=await db(`SELECT symbol,COUNT(*)::int trades,COALESCE(AVG(mfe_r),0)::numeric avg_mfe,COALESCE(AVG(mae_r),0)::numeric avg_mae,COALESCE(AVG(actual_r),0)::numeric avg_r,COALESCE(AVG(CASE WHEN mfe_r>0 THEN actual_r/NULLIF(mfe_r,0) END),0)::numeric exit_efficiency,COALESCE(AVG(rule_score),0)::numeric rule_score FROM trades WHERE ${w.join(" AND ")} GROUP BY symbol ORDER BY avg_r DESC`,v);const overall=await db(`SELECT COUNT(*)::int trades,COALESCE(AVG(mfe_r),0)::numeric avg_mfe,COALESCE(AVG(mae_r),0)::numeric avg_mae,COALESCE(AVG(actual_r),0)::numeric avg_r,COALESCE(AVG(CASE WHEN mfe_r>0 THEN actual_r/NULLIF(mfe_r,0) END),0)::numeric exit_efficiency,COALESCE(AVG(rule_score),0)::numeric rule_score FROM trades WHERE ${w.join(" AND ")}`,v);res.json({overall:overall.rows[0],bySymbol:r.rows})}catch(e){console.error(e);res.status(500).json({error:"Execution analytics failed."})}});
 app.get("/api/replay/:id",auth,async(req,res)=>{try{const r=await db(`SELECT ${fields} FROM trades WHERE id=$1 AND user_id=$2`,[Number(req.params.id),req.user.id]);if(!r.rowCount)return res.status(404).json({error:"Trade not found."});res.json({trade:r.rows[0]})}catch(e){res.status(500).json({error:"Replay load failed."})}});
-app.post("/api/simulate",auth,async(req,res)=>{try{let w=["user_id=$1"],v=[req.user.id];if(req.body.account){v.push(String(req.body.account));w.push(`account=$${v.length}`)}if(req.body.symbol){v.push(String(req.body.symbol).trim().toUpperCase());w.push(`symbol=$${v.length}`)}const rows=(await db(`SELECT actual_r,mfe_r,mae_r,profit_loss,risk_amount FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date`,v)).rows;const target=n(req.body.targetR,2),stop=-Math.abs(n(req.body.stopR,1));let pnlR=0,wins=0,losses=0,usable=0;for(const x of rows){const mfe=n(x.mfe_r),mae=n(x.mae_r);if(!mfe&&!mae)continue;usable++;let rr=n(x.actual_r);if(mfe>=target)rr=target;else if(mae<=stop)rr=stop;wins+=rr>0?1:0;losses+=rr<0?1:0;pnlR+=rr}res.json({trades:rows.length,usable,wins,losses,targetR:target,stopR:stop,simulatedR:pnlR,winRate:usable?wins/usable*100:0,avgR:usable?pnlR/usable:0})}catch(e){console.error(e);res.status(500).json({error:"Simulation failed."})}});
+app.post("/api/simulate",auth,async(req,res)=>{
+  try{
+    let w=["user_id=$1"],
+        v=[req.user.id];
+
+    if(req.body.account){
+      v.push(String(req.body.account));
+      w.push(`account=$${v.length}`);
+    }
+
+    if(req.body.symbol){
+      v.push(
+        String(req.body.symbol)
+          .trim()
+          .toUpperCase()
+      );
+
+      w.push(`symbol=$${v.length}`);
+    }
+
+    const rows=(
+      await db(
+        `SELECT
+          actual_r,
+          mfe_r,
+          mae_r,
+          profit_loss,
+          risk_amount
+         FROM trades
+         WHERE ${w.join(" AND ")}
+         ORDER BY trade_date`,
+        v
+      )
+    ).rows;
+
+    const target=n(req.body.targetR,2),
+          stop=-Math.abs(
+            n(req.body.stopR,1)
+          );
+
+    let pnlR=0,
+        simulatedPnl=0,
+        wins=0,
+        losses=0,
+        usable=0;
+
+    for(const x of rows){
+
+      const mfe=n(x.mfe_r),
+            mae=n(x.mae_r);
+
+      if(!mfe&&!mae)
+        continue;
+
+      usable++;
+
+      let rr=n(x.actual_r);
+
+      if(mfe>=target)
+        rr=target;
+      else if(mae<=stop)
+        rr=stop;
+
+      wins+=rr>0?1:0;
+      losses+=rr<0?1:0;
+
+      pnlR+=rr;
+
+      /*
+       * risk_amount is the authoritative monetary
+       * risk value already calculated by the Risk Engine.
+       *
+       * 1R = risk_amount
+       */
+      const riskAmount=n(x.risk_amount);
+
+      if(
+        req.body.account &&
+        Number.isFinite(riskAmount) &&
+        riskAmount>0
+      ){
+        simulatedPnl+=
+          rr*riskAmount;
+      }
+    }
+
+    res.json({
+      trades:rows.length,
+      usable,
+      wins,
+      losses,
+      targetR:target,
+      stopR:stop,
+      simulatedR:pnlR,
+      simulatedPnl:
+        req.body.account?
+          simulatedPnl:
+          null,
+      winRate:
+        usable?
+          wins/usable*100:
+          0,
+      avgR:
+        usable?
+          pnlR/usable:
+          0
+    });
+
+  }catch(e){
+    console.error(e);
+
+    res.status(500).json({
+      error:"Simulation failed."
+    });
+  }
+});
 app.post("/api/backtests",auth,async(req,res)=>{try{const r=await db("INSERT INTO backtests(user_id,name,symbol,target_r,stop_r) VALUES($1,$2,$3,$4,$5) RETURNING *",[req.user.id,String(req.body.name||"Scenario"),String(req.body.symbol||""),n(req.body.targetR,2),Math.abs(n(req.body.stopR,1))]);res.status(201).json({backtest:r.rows[0]})}catch(e){res.status(500).json({error:"Could not save simulation."})}});
 app.post("/api/ai/coach",auth,async(req,res)=>{try{const q=String(req.body.question||"").trim()||"Review my trading performance and tell me what to improve.";const d=await db(`SELECT COUNT(*)::int trades,COALESCE(SUM(profit_loss),0)::numeric pnl,COALESCE(AVG(actual_r),0)::numeric avg_r,COALESCE(AVG(risk_percent),0)::numeric avg_risk,COALESCE(AVG(confidence),0)::numeric confidence,COUNT(*) FILTER(WHERE profit_loss>0)::int wins,COUNT(*) FILTER(WHERE profit_loss<0)::int losses,COALESCE(AVG(mfe_r),0)::numeric mfe,COALESCE(AVG(mae_r),0)::numeric mae FROM trades WHERE user_id=$1`,[req.user.id]);const s=d.rows[0];let local=`You have ${s.trades} recorded trades, ${Number(s.pnl).toFixed(2)} net P&L, ${s.trades?((Number(s.wins)/s.trades)*100).toFixed(1):0}% win rate, ${Number(s.avg_r).toFixed(2)}R average R, ${Number(s.avg_risk).toFixed(2)}% average risk, ${Number(s.confidence).toFixed(0)} average confidence, ${Number(s.mfe).toFixed(2)}R average MFE and ${Number(s.mae).toFixed(2)}R average MAE. `;if(Number(s.avg_risk)>2)local+="Your recorded risk is elevated; consider enforcing a hard risk cap. ";if(Number(s.avg_r)<0)local+="Your average R is negative; prioritize setup quality and review losing clusters. ";if(Number(s.confidence)<50)local+="Confidence is low on average; compare confidence bands before changing strategy. ";if(Number(s.mfe)>0&&Number(s.avg_r)>0&&Number(s.avg_r)/Number(s.mfe)<0.5)local+="Your realized R is less than half of average MFE; review exits for premature profit-taking. ";if(!s.trades)local+="Start logging trades with MFE, MAE, risk, confidence and playbook fields for deeper coaching. ";if(process.env.OPENAI_API_KEY){try{const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:JSON.stringify({model:process.env.OPENAI_MODEL||"gpt-5.6-luna",input:[{role:"system",content:"You are Ghost AI, a trading-journal coach. Analyze only the supplied journal statistics. Do not give guaranteed profit claims or personalized financial instructions. Give concise process-focused observations."},{role:"user",content:`Journal statistics: ${local}\nQuestion: ${q}`} ]})});const j=await r.json();const text=(j.output||[]).flatMap(x=>x.content||[]).map(x=>x.text||"").filter(Boolean).join("\n");if(r.ok&&text)return res.json({answer:text,mode:"openai"})}catch(e){console.error("AI provider fallback:",e.message)}}res.json({answer:`${local}\n\nQuestion: ${q}\n\nNext action: review the Execution Lab and Edge Finder, then test one rule change at a time.` ,mode:"local"});}catch(e){console.error(e);res.status(500).json({error:"Coach unavailable."})}});
 app.post("/api/import",auth,async(req,res)=>{
