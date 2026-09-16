@@ -256,7 +256,11 @@ function calculateTrade({
     result.error = "Quantity must be greater than zero.";
     return result;
   }
-
+if (balance <= 0) {
+  result.calculationStatus = "INVALID";
+  result.error = "Account balance must be greater than zero.";
+  return result;
+}
   /*
    * Unknown instruments are not silently guessed.
    */
