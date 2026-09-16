@@ -669,43 +669,45 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       });
     }
 
-    await db(
-      `
-      UPDATE trades
-      SET
-        account=$1,
-        symbol=$2,
-        direction=$3,
-        entry=$4,
-        stop_loss=$5,
-        take_profit=$6,
-        exit_price=$7,
-        quantity=$8,
-        risk_amount=$9,
-        risk_percent=$10,
-        profit_loss=$11,
-        planned_rr=$12,
-        actual_r=$13
-      WHERE id=$14 AND user_id=$15
-      `,
-      [
-        acct,
-        s,
-        d,
-        entry,
-        stopLoss,
-        takeProfit,
-        exitPrice,
-        quantity,
-        calculated.riskAmount,
-        calculated.riskPercent,
-        calculated.profitLoss,
-        calculated.plannedRr,
-        calculated.actualR,
-        id,
-        req.user.id
-      ]
-    );
+await db(
+  `
+  UPDATE trades
+  SET
+    account=$1,
+    symbol=$2,
+    direction=$3,
+    entry=$4,
+    stop_loss=$5,
+    take_profit=$6,
+    exit_price=$7,
+    quantity=$8,
+    risk_amount=$9,
+    risk_percent=$10,
+    risk_level=$11,
+    profit_loss=$12,
+    planned_rr=$13,
+    actual_r=$14
+  WHERE id=$15 AND user_id=$16
+  `,
+  [
+    acct,
+    s,
+    d,
+    entry,
+    stopLoss,
+    takeProfit,
+    exitPrice,
+    quantity,
+    calculated.riskAmount,
+    calculated.riskPercent,
+    calculated.riskLevel,
+    calculated.profitLoss,
+    calculated.plannedRr,
+    calculated.actualR,
+    id,
+    req.user.id
+  ]
+);
 
     res.json({
       success:true,
