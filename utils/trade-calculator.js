@@ -150,7 +150,7 @@ function calculateTrade({
     ? finiteOrNull(exitPrice)
     : null;
 
-  const lots = Math.max(0, num(quantity, 1));
+  const rawQuantity = Number(quantity); const lots = Number.isFinite(rawQuantity) ? rawQuantity : 0;
   const balance = Math.max(0, num(accountBalance));
 
   const accCurrency = String(accountCurrency || "USD")
