@@ -489,70 +489,41 @@ VALUES(
 )
       RETURNING ${fields}
     `,[
-      req.user.id,
-      acct,
-      s,
-      d,
-      entry,
-      stopLoss,
-      takeProfit,
-      exitPrice,
-      quantity,
-
-calculated.riskAmount,
-calculated.riskPercent,
-calculated.riskLevel,
-calculated.profitLoss,
-calculated.plannedRr,
-calculated.actualR,
-
-      mfeR,
-      maeR,
-
-      maxFavorable,
-      maxAdverse,
-
-      Math.max(
-        0,
-        Math.min(
-          100,
-          Math.round(n(b.ruleScore))
-        )
-      ),
-
-      b.playbookId
-        ? Number(b.playbookId)
-        : null,
-
-      b.strategy||"",
-      b.session||"",
-      b.setup||"",
-      b.entryReason||"",
-      b.exitReason||"",
-      b.emotionBefore||"",
-      b.emotionAfter||"",
-      b.mistakes||"",
-
-      Math.max(
-        0,
-        Math.min(
-          100,
-          Math.round(n(b.confidence))
-        )
-      ),
-
-      b.marketCondition||"",
-
-      String(
-        b.screenshotData||""
-      ).slice(0,4500000),
-
-      b.notes||"",
-
-      b.tradeDate
-        ? new Date(b.tradeDate)
-        : new Date()
-    ]);
+  req.user.id,
+  acct,
+  s,
+  d,
+  entry,
+  stopLoss,
+  takeProfit,
+  exitPrice,
+  quantity,
+  calculated.riskAmount,
+  calculated.riskPercent,
+  calculated.riskLevel,
+  calculated.profitLoss,
+  calculated.plannedRr,
+  calculated.actualR,
+  mfeR,
+  maeR,
+  maxFavorable,
+  maxAdverse,
+  Math.max(0,Math.min(100,Math.round(n(b.ruleScore)))),
+  b.playbookId ? Number(b.playbookId) : null,
+  b.strategy || "",
+  b.session || "",
+  b.setup || "",
+  b.entryReason || "",
+  b.exitReason || "",
+  b.emotionBefore || "",
+  b.emotionAfter || "",
+  b.mistakes || "",
+  Math.max(0,Math.min(100,Math.round(n(b.confidence)))),
+  b.marketCondition || "",
+  String(b.screenshotData || "").slice(0,4500000),
+  b.notes || "",
+  b.tradeDate ? new Date(b.tradeDate) : new Date()
+]);
 
     res.status(201).json({
       trade:r.rows[0],
