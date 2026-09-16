@@ -1877,34 +1877,56 @@ $('#runSim').onclick=async()=>{
       }
     );
 
-    $('#simResult').innerHTML=
-      `<div class="sim-grid">
-        <div>
-          <small>Usable trades</small>
-          <b>${d.usable}</b>
-        </div>
+$('#simResult').innerHTML=
+  `<div class="sim-grid">
 
-        <div>
-          <small>Simulated R</small>
-          <b class="${C(d.simulatedR)}">
-            ${Number(d.simulatedR).toFixed(2)}R
-          </b>
-        </div>
+    <div>
+      <small>Usable trades</small>
+      <b>${d.usable}</b>
+    </div>
 
-        <div>
-          <small>Win rate</small>
-          <b>${Number(d.winRate).toFixed(1)}%</b>
-        </div>
+    <div>
+      <small>Simulated R</small>
+      <b class="${C(d.simulatedR)}">
+        ${Number(d.simulatedR).toFixed(2)}R
+      </b>
+    </div>
 
-        <div>
-          <small>Avg R</small>
-          <b class="${C(d.avgR)}">
-            ${Number(d.avgR).toFixed(2)}R
-          </b>
-        </div>
-      </div>
+    <div>
+      <small>Win rate</small>
+      <b>${Number(d.winRate).toFixed(1)}%</b>
+    </div>
 
-      <p>
+    <div>
+      <small>Avg R</small>
+      <b class="${C(d.avgR)}">
+        ${Number(d.avgR).toFixed(2)}R
+      </b>
+    </div>
+
+    ${
+      d.simulatedPnl!==null &&
+      d.simulatedPnl!==undefined
+      ?
+      `<div>
+        <small>Simulated P&L</small>
+        <b class="${C(d.simulatedPnl)}">
+          ${M(d.simulatedPnl)}
+        </b>
+      </div>`
+      :
+      ''
+    }
+
+  </div>
+
+  <p>
+    ${
+      d.usable?
+      `Scenario used target +${Number(d.targetR).toFixed(2)}R and stop -${Math.abs(Number(d.stopR)).toFixed(2)}R.`:
+      'Add MFE/MAE values to your trades before simulating.'
+    }
+  </p>`;
         ${
           d.usable?
           `Scenario used target +${Number(d.targetR).toFixed(2)}R and stop -${Math.abs(Number(d.stopR)).toFixed(2)}R.`:
