@@ -83,3 +83,37 @@ html[data-theme="dark"] .auth-card p{color:#8795a7}
 html[data-theme="dark"] .link{color:#67aaff}
 html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{color-scheme:dark}
 @media(max-width:650px){html[data-theme="dark"] .theme-toggle{min-width:42px;padding:9px 10px}html[data-theme="dark"] .theme-toggle span{display:none}}
+.risk-level {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.risk-level.normal {
+  background: rgba(34,197,94,.15);
+  color: #22c55e;
+}
+
+.risk-level.elevated {
+  background: rgba(234,179,8,.15);
+  color: #eab308;
+}
+
+.risk-level.high {
+  background: rgba(249,115,22,.15);
+  color: #f97316;
+}
+
+.risk-level.critical {
+  background: rgba(239,68,68,.15);
+  color: #ef4444;
+}
+
+.risk-level.unknown {
+  background: rgba(148,163,184,.15);
+  color: #94a3b8;
+}
