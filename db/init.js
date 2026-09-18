@@ -141,6 +141,27 @@ await db(`
   WHERE source = 'tradelocker'
     AND external_position_id IS NOT NULL
 `);
+
+/*
+ * Fix Batch 2 — trades performance indexes.
+ * See migrations/011_trades_performance_indexes.sql for the
+ * standalone migration form of these same statements.
+ */
+await db(`
+  CREATE INDEX IF NOT EXISTS idx_trades_user_date
+  ON trades(user_id, trade_date)
+`);
+
+await db(`
+  CREATE INDEX IF NOT EXISTS idx_trades_user_account
+  ON trades(user_id, account)
+`);
+
+await db(`
+  CREATE INDEX IF NOT EXISTS idx_trades_user_symbol
+  ON trades(user_id, symbol)
+`);
+
  await db(`CREATE TABLE IF NOT EXISTS playbooks(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(120) NOT NULL,description TEXT DEFAULT '',strategy VARCHAR(120) DEFAULT '',risk_limit NUMERIC(10,4) DEFAULT 1,active BOOLEAN DEFAULT TRUE,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS playbook_rules(id SERIAL PRIMARY KEY,playbook_id INTEGER REFERENCES playbooks(id) ON DELETE CASCADE,label VARCHAR(180) NOT NULL,weight INTEGER DEFAULT 1,required BOOLEAN DEFAULT TRUE,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS missed_trades(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,account VARCHAR(100),symbol VARCHAR(30) NOT NULL,direction VARCHAR(10),trade_date TIMESTAMPTZ DEFAULT NOW(),setup VARCHAR(120),reason VARCHAR(120),potential_r NUMERIC(10,4) DEFAULT 0,potential_pnl NUMERIC(20,2) DEFAULT 0,notes TEXT,created_at TIMESTAMPTZ DEFAULT NOW());
