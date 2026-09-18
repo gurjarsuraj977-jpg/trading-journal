@@ -150,7 +150,7 @@ function calculateTrade({
     ? finiteOrNull(exitPrice)
     : null;
 
-  const rawQuantity = Number(quantity); const lots = Number.isFinite(rawQuantity) ? rawQuantity : 0;
+  const lots = Math.max(0, num(quantity, 1));
   const balance = Math.max(0, num(accountBalance));
 
   const accCurrency = String(accountCurrency || "USD")
@@ -256,11 +256,7 @@ function calculateTrade({
     result.error = "Quantity must be greater than zero.";
     return result;
   }
-if (balance <= 0) {
-  result.calculationStatus = "INVALID";
-  result.error = "Account balance must be greater than zero.";
-  return result;
-}
+
   /*
    * Unknown instruments are not silently guessed.
    */

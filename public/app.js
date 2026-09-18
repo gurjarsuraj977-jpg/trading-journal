@@ -1,9 +1,3 @@
-const $=x=>document.querySelector(x),$$=x=>[...document.querySelectorAll(x)];
-const M=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(Number(n||0));
-const C=n=>Number(n||0)>=0?"positive":"negative";
-const E=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-const TZ=()=>Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC";
-
 const state={
   user:null,
   accounts:[],
@@ -313,44 +307,6 @@ async function loadAccounts(){
   $("#tradeAccount").innerHTML=
     '<option value="">All accounts</option>'+
     accountOptions($("#tradeAccount").value);
-}
-
-function dateRange(){
-  const now=new Date();
-
-  if(state.range==='all')
-    return{};
-
-  const from=new Date(now);
-
-  if(state.range==='month')
-    from.setMonth(from.getMonth(),1);
-  else if(state.range==='3m')
-    from.setMonth(from.getMonth()-2,1);
-  else if(state.range==='6m')
-    from.setMonth(from.getMonth()-5,1);
-  else
-    from.setFullYear(from.getFullYear()-1);
-
-  return{
-    from:from.toISOString().slice(0,10),
-    to:now.toISOString().slice(0,10)
-  };
-}
-
-function query(extra={}){
-  const q=new URLSearchParams({
-    tz:TZ(),
-    ...(dateRange()),
-    ...(state.account?{account:state.account}:{}),
-    ...extra
-  });
-
-  return q;
-}
-
-function st(label,value,sub='',cls=''){
-  return `<div class="stat-card"><small>${E(label)}${sub?`<i>${E(sub)}</i>`:''}</small><b class="${cls}">${E(value)}</b></div>`;
 }
 
 async function dashboard(){
@@ -735,24 +691,6 @@ function drawDonut(data){
       </div>`
     ).join('')||
     '<small>No trades yet.</small>';
-}
-
-function formatDay(v){
-  const d=new Date(
-    String(v).length===10?
-      v+'T12:00:00':
-      v
-  );
-
-  return Number.isNaN(d.getTime())?
-    '':
-    d.toLocaleDateString(
-      undefined,
-      {
-        month:'short',
-        day:'numeric'
-      }
-    );
 }
 
 function table(t,full=true){
@@ -1877,56 +1815,41 @@ $('#runSim').onclick=async()=>{
       }
     );
 
-$('#simResult').innerHTML=
-  `<div class="sim-grid">
+    $('#simResult').innerHTML=
+      `<div class="sim-grid">
+        <div>
+          <small>Usable trades</small>
+          <b>${d.usable}</b>
+        </div>
 
-    <div>
-      <small>Usable trades</small>
-      <b>${d.usable}</b>
-    </div>
+        <div>
+          <small>Simulated R</small>
+          <b class="${C(d.simulatedR)}">
+            ${Number(d.simulatedR).toFixed(2)}R
+          </b>
+        </div>
 
-    <div>
-      <small>Simulated R</small>
-      <b class="${C(d.simulatedR)}">
-        ${Number(d.simulatedR).toFixed(2)}R
-      </b>
-    </div>
+        <div>
+          <small>Win rate</small>
+          <b>${Number(d.winRate).toFixed(1)}%</b>
+        </div>
 
-    <div>
-      <small>Win rate</small>
-      <b>${Number(d.winRate).toFixed(1)}%</b>
-    </div>
+        <div>
+          <small>Avg R</small>
+          <b class="${C(d.avgR)}">
+            ${Number(d.avgR).toFixed(2)}R
+          </b>
+        </div>
+      </div>
 
-    <div>
-      <small>Avg R</small>
-      <b class="${C(d.avgR)}">
-        ${Number(d.avgR).toFixed(2)}R
-      </b>
-    </div>
+      <p>
+        ${
+          d.usable?
+          `Scenario used target +${Number(d.targetR).toFixed(2)}R and stop -${Math.abs(Number(d.stopR)).toFixed(2)}R.`:
+          'Add MFE/MAE values to your trades before simulating.'
+        }
+      </p>`;
 
-    ${
-      d.simulatedPnl!==null &&
-      d.simulatedPnl!==undefined
-      ?
-      `<div>
-        <small>Simulated P&L</small>
-        <b class="${C(d.simulatedPnl)}">
-          ${M(d.simulatedPnl)}
-        </b>
-      </div>`
-      :
-      ''
-    }
-
-  </div>
-
-  <p>
-    ${
-      d.usable?
-      `Scenario used target +${Number(d.targetR).toFixed(2)}R and stop -${Math.abs(Number(d.stopR)).toFixed(2)}R.`:
-      'Add MFE/MAE values to your trades before simulating.'
-    }
-  </p>`;
     await api(
       '/api/backtests',
       {
