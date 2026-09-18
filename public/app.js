@@ -1,46 +1,3 @@
-const state={
-  user:null,
-  accounts:[],
-  trades:[],
-  month:new Date(new Date().getFullYear(),new Date().getMonth(),1),
-  edit:null,
-  range:"year",
-  account:"",
-  lastAnalytics:null
-};
-
-async function api(url,opts={}){
-  const headers={
-    ...(opts.body?{"Content-Type":"application/json"}:{}),
-    ...(opts.headers||{})
-  };
-
-  const r=await fetch(url,{
-    credentials:"same-origin",
-    ...opts,
-    headers
-  });
-
-  let d={};
-  try{
-    d=await r.json();
-  }catch{}
-
-  if(r.status===401){
-    if(!url.includes("/auth/"))location.reload();
-    throw Error(d.error||"Session expired");
-  }
-
-  if(!r.ok)throw Error(d.error||"Request failed");
-
-  return d;
-}
-
-function showError(m){
-  console.error(m);
-  alert(m);
-}
-
 function page(p){
   $$('.page').forEach(x=>x.classList.add('hide'));
 
@@ -109,92 +66,6 @@ if(p==='accounts'){
 
 $$('nav button[data-p]').forEach(b=>
   b.onclick=()=>page(b.dataset.p)
-);
-
-$("#quickExport").onclick=()=>location.href='/api/export.csv';
-
-$('#importCsv').onclick=()=>$('#csvFile').click();
-
-function parseCsv(text){
-  const lines=text.split(/\r?\n/).filter(x=>x.trim());
-
-  if(!lines.length)return[];
-
-  const parse=line=>{
-    const out=[];
-    let cur='';
-    let q=false;
-
-    for(let i=0;i<line.length;i++){
-      const ch=line[i];
-
-      if(ch==='"'&&line[i+1]==='"'){
-        cur+='"';
-        i++;
-        continue;
-      }
-
-      if(ch==='"'){
-        q=!q;
-        continue;
-      }
-
-      if(ch===','&&!q){
-        out.push(cur.trim());
-        cur='';
-        continue;
-      }
-
-      cur+=ch;
-    }
-
-    out.push(cur.trim());
-
-    return out;
-  };
-
-  const head=parse(lines[0]);
-
-  return lines.slice(1).map(line=>{
-    const a=parse(line);
-    const o={};
-
-    head.forEach((h,i)=>{
-      o[h]=a[i]??'';
-    });
-
-    return o;
-  }).filter(o=>Object.values(o).some(Boolean));
-}
-
-$('#csvFile').onchange=async e=>{
-  const f=e.target.files[0];
-
-  if(!f)return;
-
-  try{
-    const rows=parseCsv(await f.text());
-
-    const d=await api('/api/import',{
-      method:'POST',
-      body:JSON.stringify({rows})
-    });
-
-    alert(`Imported ${d.imported} of ${d.received} rows.`);
-
-    await loadAccounts();
-    await dashboard();
-
-  }catch(err){
-    showError(err.message);
-  }finally{
-    e.target.value='';
-  }
-};
-
-$("#export")?.addEventListener(
-  'click',
-  ()=>location.href='/api/export.csv'
 );
 
 $("#logout").onclick=async()=>{
@@ -283,30 +154,6 @@ await loadTradeLockerConnection()
   ));
 
 await dashboard();
-}
-
-function accountOptions(selected=''){
-  return state.accounts.map(a=>
-    `<option value="${E(a.name)}" ${a.name===selected?'selected':''}>${E(a.name)}</option>`
-  ).join('');
-}
-
-async function loadAccounts(){
-  const d=await api('/api/accounts');
-
-  state.accounts=d.accounts||[];
-
-  $("#ta").innerHTML=
-    accountOptions($("#ta").value)||
-    '<option value="">No account</option>';
-
-  $("#dashAccount").innerHTML=
-    '<option value="">All accounts</option>'+
-    accountOptions(state.account);
-
-  $("#tradeAccount").innerHTML=
-    '<option value="">All accounts</option>'+
-    accountOptions($("#tradeAccount").value);
 }
 
 async function dashboard(){
@@ -903,17 +750,6 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape')
     $("#modal").classList.add('hide');
 });
-
-function fileData(f){
-  return new Promise((r,j)=>{
-    const x=new FileReader();
-
-    x.onload=()=>r(x.result);
-    x.onerror=j;
-
-    x.readAsDataURL(f);
-  });
-}
 
 $("#save").onclick=async()=>{
   const btn=$("#save");
