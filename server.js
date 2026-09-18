@@ -346,23 +346,35 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       b.entry!==undefined ? b.entry : current.entry
     );
 
-    const stopLoss=n(
-      b.stop_loss!==undefined
-        ? b.stop_loss
-        : current.stop_loss
-    );
+    /*
+     * NOTE: the frontend (and POST /api/trades) send these as
+     * camelCase (stopLoss/takeProfit/exitPrice), matching the
+     * existing POST handler's field names. Reading snake_case
+     * here meant edits to these fields were silently ignored.
+     */
+    const stopLoss=
+      b.stopLoss===""||b.stopLoss===null
+        ? null
+        : n(
+            b.stopLoss!==undefined ? b.stopLoss : current.stop_loss,
+            null
+          );
 
-    const takeProfit=n(
-      b.take_profit!==undefined
-        ? b.take_profit
-        : current.take_profit
-    );
+    const takeProfit=
+      b.takeProfit===""||b.takeProfit===null
+        ? null
+        : n(
+            b.takeProfit!==undefined ? b.takeProfit : current.take_profit,
+            null
+          );
 
-    const exitPrice=n(
-      b.exit_price!==undefined
-        ? b.exit_price
-        : current.exit_price
-    );
+    const exitPrice=
+      b.exitPrice===""||b.exitPrice===null
+        ? null
+        : n(
+            b.exitPrice!==undefined ? b.exitPrice : current.exit_price,
+            null
+          );
 
     const quantity=n(
       b.quantity!==undefined
@@ -416,6 +428,147 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       });
     }
 
+    const maxFavorable=
+      b.maxFavorablePrice===""||
+      b.maxFavorablePrice===null
+        ? null
+        : n(
+            b.maxFavorablePrice!==undefined
+              ? b.maxFavorablePrice
+              : current.max_favorable_price,
+            null
+          );
+
+    const maxAdverse=
+      b.maxAdversePrice===""||
+      b.maxAdversePrice===null
+        ? null
+        : n(
+            b.maxAdversePrice!==undefined
+              ? b.maxAdversePrice
+              : current.max_adverse_price,
+            null
+          );
+
+    let mfeR=n(
+      b.mfeR!==undefined ? b.mfeR : current.mfe_r
+    );
+
+    let maeR=n(
+      b.maeR!==undefined ? b.maeR : current.mae_r
+    );
+
+    /*
+     * Same recompute POST /api/trades already performs: if a
+     * max favorable/adverse PRICE is known, that price is the
+     * source of truth for the R-multiple, not the raw stored R.
+     */
+    if(
+      calculated.riskAmount>0&&
+      calculated.entrySlDistance>0
+    ){
+      if(maxFavorable!==null){
+        const favorableDistance=
+          d==="BUY"
+            ? maxFavorable-entry
+            : entry-maxFavorable;
+
+        mfeR=
+          favorableDistance/
+          calculated.entrySlDistance;
+      }
+
+      if(maxAdverse!==null){
+        const adverseDistance=
+          d==="BUY"
+            ? entry-maxAdverse
+            : maxAdverse-entry;
+
+        maeR=
+          adverseDistance/
+          calculated.entrySlDistance;
+      }
+    }
+
+    const ruleScore=Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          n(
+            b.ruleScore!==undefined ? b.ruleScore : current.rule_score
+          )
+        )
+      )
+    );
+
+    const confidence=Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          n(
+            b.confidence!==undefined ? b.confidence : current.confidence
+          )
+        )
+      )
+    );
+
+    const playbookId=
+      b.playbookId!==undefined
+        ? (b.playbookId ? Number(b.playbookId) : null)
+        : current.playbook_id;
+
+    const strategy=
+      b.strategy!==undefined ? (b.strategy||"") : (current.strategy||"");
+
+    const session=
+      b.session!==undefined ? (b.session||"") : (current.session||"");
+
+    const setup=
+      b.setup!==undefined ? (b.setup||"") : (current.setup||"");
+
+    const entryReason=
+      b.entryReason!==undefined
+        ? (b.entryReason||"")
+        : (current.entry_reason||"");
+
+    const exitReason=
+      b.exitReason!==undefined
+        ? (b.exitReason||"")
+        : (current.exit_reason||"");
+
+    const emotionBefore=
+      b.emotionBefore!==undefined
+        ? (b.emotionBefore||"")
+        : (current.emotion_before||"");
+
+    const emotionAfter=
+      b.emotionAfter!==undefined
+        ? (b.emotionAfter||"")
+        : (current.emotion_after||"");
+
+    const mistakes=
+      b.mistakes!==undefined ? (b.mistakes||"") : (current.mistakes||"");
+
+    const marketCondition=
+      b.marketCondition!==undefined
+        ? (b.marketCondition||"")
+        : (current.market_condition||"");
+
+    const screenshotData=
+      b.screenshotData!==undefined
+        ? String(b.screenshotData||"").slice(0,4500000)
+        : (current.screenshot_data||"");
+
+    const notes=
+      b.notes!==undefined ? (b.notes||"") : (current.notes||"");
+
+    const tradeDate=
+      b.tradeDate!==undefined && b.tradeDate
+        ? new Date(b.tradeDate)
+        : current.trade_date;
+
 await db(
   `
   UPDATE trades
@@ -433,8 +586,27 @@ await db(
     risk_level=$11,
     profit_loss=$12,
     planned_rr=$13,
-    actual_r=$14
-  WHERE id=$15 AND user_id=$16
+    actual_r=$14,
+    mfe_r=$15,
+    mae_r=$16,
+    max_favorable_price=$17,
+    max_adverse_price=$18,
+    rule_score=$19,
+    playbook_id=$20,
+    strategy=$21,
+    session=$22,
+    setup=$23,
+    entry_reason=$24,
+    exit_reason=$25,
+    emotion_before=$26,
+    emotion_after=$27,
+    mistakes=$28,
+    confidence=$29,
+    market_condition=$30,
+    screenshot_data=$31,
+    notes=$32,
+    trade_date=$33
+  WHERE id=$34 AND user_id=$35
   `,
   [
     acct,
@@ -451,6 +623,25 @@ await db(
     calculated.profitLoss,
     calculated.plannedRr,
     calculated.actualR,
+    mfeR,
+    maeR,
+    maxFavorable,
+    maxAdverse,
+    ruleScore,
+    playbookId,
+    strategy,
+    session,
+    setup,
+    entryReason,
+    exitReason,
+    emotionBefore,
+    emotionAfter,
+    mistakes,
+    confidence,
+    marketCondition,
+    screenshotData,
+    notes,
+    tradeDate,
     id,
     req.user.id
   ]
