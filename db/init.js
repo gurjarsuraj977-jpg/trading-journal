@@ -108,6 +108,19 @@ module.exports=async function init({db}){
  await db(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,name VARCHAR(80) NOT NULL,email VARCHAR(255) UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS accounts(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(100) NOT NULL,starting_balance NUMERIC(20,2) DEFAULT 0,currency VARCHAR(10) DEFAULT 'USD',created_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(user_id,name));
  CREATE TABLE IF NOT EXISTS trades(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,account VARCHAR(100) DEFAULT 'Main Account',symbol VARCHAR(30) NOT NULL,direction VARCHAR(10) NOT NULL CHECK(direction IN('BUY','SELL')),entry NUMERIC(20,8) NOT NULL,stop_loss NUMERIC(20,8),take_profit NUMERIC(20,8),exit_price NUMERIC(20,8),quantity NUMERIC(20,8) DEFAULT 1,risk_amount NUMERIC(20,2) DEFAULT 0,profit_loss NUMERIC(20,2) DEFAULT 0,strategy VARCHAR(100),session VARCHAR(40),notes TEXT,trade_date TIMESTAMPTZ DEFAULT NOW(),created_at TIMESTAMPTZ DEFAULT NOW());`);
+
+/*
+ * Batch 1B — account lifecycle (archive/reactivate).
+ * Additive, non-destructive: existing rows default to active=TRUE,
+ * so no account or trade is affected until a user explicitly
+ * archives an account. See migrations/012_accounts_active_lifecycle.sql
+ * for the standalone migration form of this same statement.
+ */
+await db(`
+  ALTER TABLE accounts
+  ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE
+`);
+
  const cols=[   ["risk_percent","NUMERIC(10,4) DEFAULT 0"],   ["risk_level","VARCHAR(20) DEFAULT 'UNKNOWN'"],   ["planned_rr","NUMERIC(10,4) DEFAULT 0"],   ["actual_r","NUMERIC(10,4) DEFAULT 0"],   ["setup","VARCHAR(120)"],   ["entry_reason","TEXT"],   ["exit_reason","TEXT"],   ["emotion_before","VARCHAR(50)"],   ["emotion_after","VARCHAR(50)"],   ["mistakes","TEXT"],   ["confidence","INTEGER DEFAULT 0"],   ["market_condition","VARCHAR(80)"],   ["screenshot_data","TEXT"],   ["mfe_r","NUMERIC(10,4) DEFAULT 0"],   ["mae_r","NUMERIC(10,4) DEFAULT 0"],   ["max_favorable_price","NUMERIC(20,8)"],   ["max_adverse_price","NUMERIC(20,8)"],   ["rule_score","INTEGER DEFAULT 0"],   ["playbook_id","INTEGER"] ];
 for(const [a,b] of cols)await db(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS ${a} ${b}`);
  await db(`
@@ -161,6 +174,69 @@ await db(`
   CREATE INDEX IF NOT EXISTS idx_trades_user_symbol
   ON trades(user_id, symbol)
 `);
+
+/*
+ * Batch 1C — real trade -> account relationship.
+ *
+ * trades.account (free-text name) stays exactly as-is: many other
+ * routes (analytics, execution, simulation, CSV import/export,
+ * missed trades, etc.) filter/join on it and are out of scope for
+ * this batch, so removing or renaming it would break them. This
+ * adds trades.account_id purely additively alongside it, backfills
+ * it from the existing name+user match, and only adds the FK once
+ * backfill has run (NULL account_id values are simply skipped by
+ * the FK check, so this is safe even for any row that can't be
+ * matched). See migrations/013_trades_account_id.sql for the
+ * standalone migration form of these same statements, including
+ * the matched/unmatched diagnostics this logs on every boot.
+ */
+await db(`
+  ALTER TABLE trades
+  ADD COLUMN IF NOT EXISTS account_id INTEGER
+`);
+
+await db(`
+  UPDATE trades t
+  SET account_id = a.id
+  FROM accounts a
+  WHERE t.account_id IS NULL
+    AND t.user_id = a.user_id
+    AND t.account = a.name
+`);
+
+await db(`
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'fk_trades_account_id'
+    ) THEN
+      ALTER TABLE trades
+      ADD CONSTRAINT fk_trades_account_id
+      FOREIGN KEY (account_id) REFERENCES accounts(id)
+      ON DELETE SET NULL;
+    END IF;
+  END $$;
+`);
+
+await db(`
+  CREATE INDEX IF NOT EXISTS idx_trades_account_id
+  ON trades(account_id)
+`);
+
+try{
+  const diag=await db(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(account_id)::int AS populated
+    FROM trades
+  `);
+  const {total,populated}=diag.rows[0];
+  console.log(
+    `[migration] trades.account_id: ${populated}/${total} rows populated, ${total-populated} unmatched (left NULL, not guessed)`
+  );
+}catch(e){
+  console.error("[migration] trades.account_id diagnostic failed:",e.message);
+}
 
  await db(`CREATE TABLE IF NOT EXISTS playbooks(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(120) NOT NULL,description TEXT DEFAULT '',strategy VARCHAR(120) DEFAULT '',risk_limit NUMERIC(10,4) DEFAULT 1,active BOOLEAN DEFAULT TRUE,created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS playbook_rules(id SERIAL PRIMARY KEY,playbook_id INTEGER REFERENCES playbooks(id) ON DELETE CASCADE,label VARCHAR(180) NOT NULL,weight INTEGER DEFAULT 1,required BOOLEAN DEFAULT TRUE,created_at TIMESTAMPTZ DEFAULT NOW());

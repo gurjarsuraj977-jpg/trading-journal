@@ -24,6 +24,16 @@ const {createExportRouter}=require("./routes/export-routes");
 const {getCurrencyConversionRate}=require("./market-data/twelve-data");
 const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
 const {createMT5Router}=require("./mt5/mt5-routes");
+/*
+ * Batch 1B — JWT secret hardening.
+ * Production must never silently sign tokens with the public
+ * "dev-only-change-me" fallback. Development keeps the fallback
+ * so local setup still works without extra config.
+ */
+if(process.env.NODE_ENV==="production"&&!process.env.JWT_SECRET){
+  console.error("FATAL: JWT_SECRET must be set when NODE_ENV=production. Refusing to start with a default signing secret.");
+  process.exit(1);
+}
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
 app.use(express.json({limit:"5mb"}));app.use(cookieParser());app.use(express.static(path.join(__dirname,"public")));
 const auth=createAuthMiddleware({SECRET});
@@ -36,7 +46,7 @@ function token(u){return jwt.sign({id:u.id,name:u.name,email:u.email},SECRET,{ex
 const setCookie=(res,t)=>res.cookie("gt_token",t,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:604800000});
 app.use("/api/auth",createAuthRouter({db,bcrypt,token,setCookie,auth}));
 app.use("/api/accounts",createAccountRouter({db,auth,n}));
-const fields="id,account,symbol,direction,entry,stop_loss,take_profit,exit_price,quantity,risk_amount,risk_percent,risk_level,profit_loss,planned_rr,actual_r,mfe_r,mae_r,max_favorable_price,max_adverse_price,rule_score,playbook_id,strategy,session,setup,entry_reason,exit_reason,emotion_before,emotion_after,mistakes,confidence,market_condition,screenshot_data,notes,trade_date";
+const fields="id,account,account_id,symbol,direction,entry,stop_loss,take_profit,exit_price,quantity,risk_amount,risk_percent,risk_level,profit_loss,planned_rr,actual_r,mfe_r,mae_r,max_favorable_price,max_adverse_price,rule_score,playbook_id,strategy,session,setup,entry_reason,exit_reason,emotion_before,emotion_after,mistakes,confidence,market_condition,screenshot_data,notes,trade_date";
 app.get("/api/trades",auth,async(req,res)=>{try{
   let v=[req.user.id],w=["user_id=$1"];
   if(req.query.symbol){v.push("%"+String(req.query.symbol).trim()+"%");w.push(`symbol ILIKE $${v.length}`)}
@@ -67,14 +77,28 @@ app.post("/api/trades",auth,async(req,res)=>{
       });
     }
 
+/*
+ * Batch 1C — resolve the account's id/active status alongside the
+ * balance/currency the calculation already needed. A brand-new
+ * trade must never be attached to an archived account: the
+ * frontend already hides archived accounts from the "add trade"
+ * picker, but the backend is the actual enforcement layer since a
+ * caller could otherwise submit an archived account name directly.
+ */
 const ac=await db(
-  "SELECT starting_balance,currency FROM accounts WHERE user_id=$1 AND name=$2",
+  "SELECT id,starting_balance,currency,active FROM accounts WHERE user_id=$1 AND name=$2",
   [req.user.id,acct]
 );
 
     if(!ac.rowCount){
       return res.status(400).json({
         error:"Selected account does not exist."
+      });
+    }
+
+    if(ac.rows[0].active===false){
+      return res.status(400).json({
+        error:"Selected account is archived. Reactivate it or choose an active account to add new trades."
       });
     }
 
@@ -195,6 +219,7 @@ const calculated=calculateTrade({
       INSERT INTO trades(
         user_id,
         account,
+        account_id,
         symbol,
         direction,
         entry,
@@ -232,12 +257,13 @@ VALUES(
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
   $12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
   $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,
-  $32,$33,$34
+  $32,$33,$34,$35
 )
       RETURNING ${fields}
     `,[
   req.user.id,
   acct,
+  ac.rows[0].id,
   s,
   d,
   entry,
@@ -327,9 +353,21 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       });
     }
 
+    /*
+     * Batch 1C — same account resolution as POST, but the archived
+     * check only fires when the account is actually changing.
+     * Comparing the resolved name against current.account means:
+     *   - no `account` in the body at all -> acct===current.account
+     *     -> editing an already-archived account's trade keeps
+     *        working, exactly as before.
+     *   - `account` resent with its existing value -> same as above.
+     *   - `account` set to a genuinely different name -> only then
+     *     must that account be active, so a trade can never be
+     *     silently (or explicitly) moved onto an archived account.
+     */
     const ac=await db(
       `
-      SELECT starting_balance,currency
+      SELECT id,starting_balance,currency,active
       FROM accounts
       WHERE user_id=$1 AND name=$2
       `,
@@ -339,6 +377,12 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
     if(!ac.rowCount){
       return res.status(400).json({
         error:"Selected account does not exist."
+      });
+    }
+
+    if(acct!==current.account&&ac.rows[0].active===false){
+      return res.status(400).json({
+        error:"Cannot move this trade to an archived account. Reactivate it first or choose an active account."
       });
     }
 
@@ -574,42 +618,44 @@ await db(
   UPDATE trades
   SET
     account=$1,
-    symbol=$2,
-    direction=$3,
-    entry=$4,
-    stop_loss=$5,
-    take_profit=$6,
-    exit_price=$7,
-    quantity=$8,
-    risk_amount=$9,
-    risk_percent=$10,
-    risk_level=$11,
-    profit_loss=$12,
-    planned_rr=$13,
-    actual_r=$14,
-    mfe_r=$15,
-    mae_r=$16,
-    max_favorable_price=$17,
-    max_adverse_price=$18,
-    rule_score=$19,
-    playbook_id=$20,
-    strategy=$21,
-    session=$22,
-    setup=$23,
-    entry_reason=$24,
-    exit_reason=$25,
-    emotion_before=$26,
-    emotion_after=$27,
-    mistakes=$28,
-    confidence=$29,
-    market_condition=$30,
-    screenshot_data=$31,
-    notes=$32,
-    trade_date=$33
-  WHERE id=$34 AND user_id=$35
+    account_id=$2,
+    symbol=$3,
+    direction=$4,
+    entry=$5,
+    stop_loss=$6,
+    take_profit=$7,
+    exit_price=$8,
+    quantity=$9,
+    risk_amount=$10,
+    risk_percent=$11,
+    risk_level=$12,
+    profit_loss=$13,
+    planned_rr=$14,
+    actual_r=$15,
+    mfe_r=$16,
+    mae_r=$17,
+    max_favorable_price=$18,
+    max_adverse_price=$19,
+    rule_score=$20,
+    playbook_id=$21,
+    strategy=$22,
+    session=$23,
+    setup=$24,
+    entry_reason=$25,
+    exit_reason=$26,
+    emotion_before=$27,
+    emotion_after=$28,
+    mistakes=$29,
+    confidence=$30,
+    market_condition=$31,
+    screenshot_data=$32,
+    notes=$33,
+    trade_date=$34
+  WHERE id=$35 AND user_id=$36
   `,
   [
     acct,
+    ac.rows[0].id,
     s,
     d,
     entry,

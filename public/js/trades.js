@@ -126,11 +126,22 @@ function openModal(t){
 
   $("#tf").reset();
 
+  /*
+   * Batch 1B: editing an existing trade must always be able to show
+   * that trade's own account, even if it has since been archived
+   * (activeOnly=false) — otherwise saving the edit would silently
+   * reassign it to a different account. Adding a brand-new trade
+   * only offers active accounts (activeOnly=true), with the default
+   * selection falling back to the first active account rather than
+   * simply state.accounts[0], which could itself be archived.
+   */
   $("#ta").innerHTML=
     accountOptions(
       t?.account||
+      state.accounts.find(a=>a.active!==false)?.name||
       state.accounts[0]?.name||
-      ''
+      '',
+      !t
     );
 
   $("#tt").value=localNow();
@@ -295,6 +306,7 @@ $("#save").onclick=async()=>{
     state.edit=null;
 
     await loadAccounts();
+    await trades();
     await dashboard();
 
   }catch(e){

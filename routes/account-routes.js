@@ -8,24 +8,53 @@ function createAccountRouter({db,auth,n}){
   router.put("/:id",auth,async(req,res)=>{
     try{
       const id=Number(req.params.id);
-      const startingBalance=Number(req.body.startingBalance);
 
       if(!Number.isInteger(id)||id<=0){
         return res.status(400).json({error:"Invalid account."});
       }
 
+      /*
+       * Batch 1B — account lifecycle (archive/reactivate).
+       * This endpoint now accepts an optional `active` boolean in
+       * addition to the existing `startingBalance`, following the
+       * same pattern the playbooks route already uses (a single
+       * authenticated, ownership-checked PUT that can update either
+       * field). Any field not present in the request body falls back
+       * to the account's current stored value, so existing
+       * balance-only calls behave exactly as before and an
+       * archive/reactivate call does not need to resend the balance.
+       */
+      const existing=await db(
+        "SELECT * FROM accounts WHERE id=$1 AND user_id=$2",
+        [id,req.user.id]
+      );
+
+      if(!existing.rowCount){
+        return res.status(404).json({error:"Account not found."});
+      }
+
+      const current=existing.rows[0];
+
+      const startingBalance=req.body.startingBalance!==undefined
+        ? Number(req.body.startingBalance)
+        : Number(current.starting_balance);
+
       if(!Number.isFinite(startingBalance)||startingBalance<0){
         return res.status(400).json({error:"Starting balance must be a valid non-negative number."});
       }
 
+      const active=req.body.active!==undefined
+        ? !!req.body.active
+        : current.active;
+
       const r=await db(
         `
         UPDATE accounts
-        SET starting_balance=$1
-        WHERE id=$2 AND user_id=$3
+        SET starting_balance=$1,active=$2
+        WHERE id=$3 AND user_id=$4
         RETURNING *
         `,
-        [startingBalance,id,req.user.id]
+        [startingBalance,active,id,req.user.id]
       );
 
       if(!r.rows.length){
