@@ -204,6 +204,7 @@
       <span class="eyebrow">LIVE JOURNAL</span>
       <h1>Performance overview</h1>
       <p id="periodText">Your trading performance at a glance.</p>
+      <p id="dashInsight"></p>
     </div>
 
     <div class="status">
@@ -281,6 +282,19 @@
       <canvas id="pnlChart"></canvas>
 
     </div>
+
+  </div>
+
+  <div class="panel pattern-panel">
+
+    <div class="panel-head">
+      <div>
+        <h2>Trading pattern intelligence</h2>
+        <p>Best and worst performers this period, by symbol, strategy, session and direction</p>
+      </div>
+    </div>
+
+    <div id="patternIntel" class="metric-list"></div>
 
   </div>
 
@@ -366,6 +380,13 @@
       <span class="eyebrow">JOURNAL</span>
       <h1>Trading calendar</h1>
     </div>
+
+    <label class="account-select">
+      <span>ACCOUNT</span>
+      <select id="calAccount">
+        <option value="">All accounts</option>
+      </select>
+    </label>
 
     <button class="secondary" onclick="page('trades')">
       View all trades →

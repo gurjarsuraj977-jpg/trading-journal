@@ -43,4 +43,12 @@ async function loadAccounts(){
   $("#tradeAccount").innerHTML=
     '<option value="">All accounts</option>'+
     accountOptions($("#tradeAccount").value);
+
+  const calAccount=$("#calAccount");
+
+  if(calAccount){
+    calAccount.innerHTML=
+      '<option value="">All accounts</option>'+
+      accountOptions(calAccount.value);
+  }
 }

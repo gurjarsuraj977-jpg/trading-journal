@@ -23,9 +23,18 @@ async function dashboard(){
     st('Win rate',Number(s.winRate||0).toFixed(1)+'%'),
     st(
       'Profit factor',
-      Number.isFinite(Number(s.profitFactor))?
-        Number(s.profitFactor).toFixed(2):
-        '∞'
+      /*
+       * Batch 2 fix: profitFactorInfinite is now an explicit flag
+       * from the backend (see routes/analytics-routes.js) rather
+       * than inferring "infinite" from Number.isFinite() on a value
+       * that JSON can't actually carry Infinity through - that
+       * silently became 0 on the wire, so this card used to show
+       * "0.00" (the worst score) for a trader with zero losses (the
+       * best outcome).
+       */
+      s.profitFactorInfinite?
+        '∞':
+        Number(s.profitFactor||0).toFixed(2)
     )
   ].join('');
 
@@ -48,6 +57,9 @@ async function dashboard(){
   drawPnl(d.byDay||[]);
   drawDonut(d.bySymbol||[]);
 
+  renderPatternIntel(d);
+  renderInsight(d);
+
   $("#pnlTotal").textContent=M(s.pnl);
 
   const t=await api('/api/trades?'+query())
@@ -57,6 +69,107 @@ async function dashboard(){
 
   $("#recent").innerHTML=
     table(state.trades.slice(0,8),false);
+}
+
+/*
+ * Batch 2 - Trading Pattern Intelligence.
+ *
+ * Feature: best/worst performing symbol, strategy, session and
+ *   direction for the selected period/account.
+ * Question it answers: "Where am I making money, and where am I
+ *   losing it?" - explicitly one of the target Dashboard questions,
+ *   and a pattern every researched competitor (TraderSync, Edgewonk,
+ *   Tradervue) surfaces prominently.
+ * Data source: the SAME /api/analytics response dashboard() already
+ *   fetches (bySymbol/byStrategy/bySession/byDirection) - no new API
+ *   call, no new backend calculation, no second definition of P&L.
+ * Calculation: for each dimension, sort the existing per-group P&L
+ *   totals and take the highest and lowest; only shown once a
+ *   dimension has at least 2 distinct groups with trades, otherwise
+ *   an honest "not enough data yet" line - never a fabricated
+ *   comparison against a single data point.
+ * Why it belongs on Dashboard: this data was already being computed
+ *   on every Dashboard load (for the symbol donut) and again on the
+ *   Analytics page, but strategy/session/direction performance -
+ *   explicitly called out in the brief's Trading Pattern
+ *   Intelligence section - was never surfaced on the Dashboard at
+ *   all despite already being fetched into `d` and simply unused.
+ */
+function bestWorst(rows,key){
+  const usable=(rows||[]).filter(x=>Number(x.trades)>0);
+
+  if(usable.length<2)
+    return null;
+
+  const sorted=usable.slice().sort(
+    (a,b)=>Number(b.pnl)-Number(a.pnl)
+  );
+
+  return{
+    best:sorted[0],
+    worst:sorted[sorted.length-1]
+  };
+}
+
+function patternLine(label,rows,key){
+  const bw=bestWorst(rows,key);
+
+  if(!bw){
+    return`<p><span>${E(label)}</span><b>Not enough data yet</b></p>`;
+  }
+
+  const name=x=>E(x[key]||'Unspecified');
+
+  return`
+    <p>
+      <span>Best ${E(label)}</span>
+      <b class="${C(bw.best.pnl)}">${name(bw.best)} · ${M(bw.best.pnl)}</b>
+    </p>
+    <p>
+      <span>Worst ${E(label)}</span>
+      <b class="${C(bw.worst.pnl)}">${name(bw.worst)} · ${M(bw.worst.pnl)}</b>
+    </p>
+  `;
+}
+
+function renderPatternIntel(d){
+  const el=$("#patternIntel");
+
+  if(!el)return;
+
+  el.innerHTML=
+    patternLine('symbol',d.bySymbol,'symbol')+
+    patternLine('strategy',d.byStrategy,'strategy')+
+    patternLine('session',d.bySession,'session')+
+    patternLine('direction',d.byDirection,'direction');
+}
+
+/*
+ * Batch 2 - a single deterministic, data-derived observation line.
+ * This is plain arithmetic over the same bySymbol data above, not a
+ * model call - it is intentionally NOT labeled "AI" anywhere, so it
+ * is never confused with a claim of predictive or generated
+ * intelligence. It only ever states something already true in the
+ * fetched numbers.
+ */
+function renderInsight(d){
+  const el=$("#dashInsight");
+
+  if(!el)return;
+
+  const bw=bestWorst(d.bySymbol,'symbol');
+
+  if(!bw){
+    el.textContent=
+      'Log a few more trades this period to unlock pattern insights.';
+    return;
+  }
+
+  el.textContent=
+    `This period, ${bw.best.symbol} is your strongest symbol `+
+    `(${M(bw.best.pnl)} across ${bw.best.trades} trade${Number(bw.best.trades)===1?'':'s'}), `+
+    `while ${bw.worst.symbol} has cost you the most `+
+    `(${M(bw.worst.pnl)} across ${bw.worst.trades} trade${Number(bw.worst.trades)===1?'':'s'}).`;
 }
 
 function periodLabel(){

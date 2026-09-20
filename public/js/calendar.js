@@ -7,9 +7,17 @@ async function calendar(){
   const mo=state.month.getMonth()+1;
   const m=String(mo).padStart(2,'0');
 
-  const d=await api(
-    `/api/calendar?month=${y}-${m}&tz=${encodeURIComponent(TZ())}`
-  );
+  const q=new URLSearchParams({
+    month:`${y}-${m}`,
+    tz:TZ()
+  });
+
+  const calAccountEl=$("#calAccount");
+
+  if(calAccountEl&&calAccountEl.value)
+    q.set('account',calAccountEl.value);
+
+  const d=await api(`/api/calendar?${q}`);
 
   const map=Object.fromEntries(
     (d.days||[]).map(x=>[
@@ -109,3 +117,11 @@ $("#next").onclick=()=>{
 
   calendar().catch(e=>showError(e.message));
 };
+
+const calAccountFilter=$("#calAccount");
+
+if(calAccountFilter){
+  calAccountFilter.onchange=()=>{
+    calendar().catch(e=>showError(e.message));
+  };
+}
