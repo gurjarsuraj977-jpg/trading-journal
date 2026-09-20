@@ -48,6 +48,15 @@ const setCookie=(res,t)=>res.cookie("gt_token",t,{httpOnly:true,sameSite:"lax",s
 app.use("/api/auth",createAuthRouter({db,bcrypt,token,setCookie,auth}));
 app.use("/api/accounts",createAccountRouter({db,auth,n}));
 const fields="id,account,account_id,symbol,direction,entry,stop_loss,take_profit,exit_price,quantity,risk_amount,risk_percent,risk_level,profit_loss,planned_rr,actual_r,mfe_r,mae_r,max_favorable_price,max_adverse_price,rule_score,playbook_id,strategy,session,setup,entry_reason,exit_reason,emotion_before,emotion_after,mistakes,confidence,market_condition,screenshot_data,notes,trade_date";
+/*
+ * Batch A2 — normal trade-list responses must never carry the
+ * (potentially multi-MB base64) screenshot_data column. listFields
+ * is `fields` minus screenshot_data, used only for the ordinary
+ * list endpoint below. Every other consumer (POST/PUT RETURNING,
+ * the Replay/export/premium routers) keeps using `fields`
+ * unchanged, since Batch A only targets GET /api/trades.
+ */
+const listFields=fields.split(",").filter(f=>f!=="screenshot_data").join(",");
 app.get("/api/trades",auth,async(req,res)=>{try{
   let v=[req.user.id],w=["user_id=$1"];
   if(req.query.symbol){v.push("%"+String(req.query.symbol).trim()+"%");w.push(`symbol ILIKE $${v.length}`)}
@@ -61,9 +70,23 @@ app.get("/api/trades",auth,async(req,res)=>{try{
     const tz=String(req.query.tz||"UTC");v.push(tz,req.query.date);
     w.push(`(trade_date AT TIME ZONE $${v.length-1})::date=$${v.length}::date`);
   }
-  let r=await db(`SELECT ${fields} FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date DESC,id DESC LIMIT 1000`,v);
+  let r=await db(`SELECT ${listFields} FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date DESC,id DESC LIMIT 1000`,v);
   res.json({trades:r.rows});
 }catch(e){console.error(e);res.status(500).json({error:"Could not load trades."})}});
+/*
+ * Batch A2 — targeted retrieval path for consumers that genuinely
+ * need a single trade's full data, screenshot included (the edit
+ * form's "keep existing screenshot unless a new file is chosen"
+ * logic). Scoped to one trade at a time so it never re-introduces
+ * the bulk-screenshot payload the list endpoint above just removed.
+ */
+app.get("/api/trades/:id",auth,async(req,res)=>{try{
+  const id=Number(req.params.id);
+  if(!Number.isInteger(id)||id<=0)return res.status(400).json({error:"Invalid trade ID."});
+  let r=await db(`SELECT ${fields} FROM trades WHERE id=$1 AND user_id=$2`,[id,req.user.id]);
+  if(!r.rowCount)return res.status(404).json({error:"Trade not found."});
+  res.json({trade:r.rows[0]});
+}catch(e){console.error(e);res.status(500).json({error:"Could not load trade."})}});
 app.post("/api/trades",auth,async(req,res)=>{
   try{
     const b=req.body;
@@ -170,6 +193,19 @@ const calculated=calculateTrade({
   accountCurrency,
   pnlConversionRate
 });
+
+    /*
+     * Batch A1 — POST must reject the same way PUT already does:
+     * an unknown/unconvertible symbol or missing conversion means
+     * calculateTrade() returns calculated.error, and an invalid or
+     * zero-value trade must never reach the database.
+     */
+    if(calculated.error){
+      return res.status(400).json({
+        error:calculated.error,
+        calculation:calculated
+      });
+    }
 
     let mfeR=n(b.mfeR);
     let maeR=n(b.maeR);

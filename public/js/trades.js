@@ -318,14 +318,14 @@ $("#save").onclick=async()=>{
 
 window.editTrade=async id=>{
   try{
-    let t=state.trades.find(
-      x=>Number(x.id)===Number(id)
-    );
-
-    if(!t)
-      t=(await api('/api/trades'))
-        .trades
-        .find(x=>Number(x.id)===Number(id));
+    /*
+     * Batch A2: the Journal list no longer carries screenshot_data,
+     * so state.trades entries don't have it either. Fetch this one
+     * trade's full record (screenshot included) via the targeted
+     * single-trade endpoint so editing still preserves an existing
+     * screenshot when the user doesn't pick a new file.
+     */
+    const t=(await api('/api/trades/'+id)).trade;
 
     if(!t)
       throw Error('Trade not found.');
