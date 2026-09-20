@@ -25,3 +25,47 @@ Optional AI:
 Run:
 `node --check server.js`
 `node --check public/app.js`
+
+
+## Admin Control Center (V8)
+
+Server-side administrator panel for managing registered user accounts.
+
+### Features
+- Overview stats, user search/filter/pagination
+- Approve pending registrations
+- Ban / unban (invalidates sessions via `token_version`)
+- Role management with last-admin protection
+- Secure user deletion with confirmation and audit trail
+- Admin activity log (`admin_audit_log`)
+
+### Bootstrap the first administrator
+Set the environment variable (Render / hosting panel), then restart:
+
+```
+INITIAL_ADMIN_EMAIL=you@example.com
+```
+
+There is **no** public “make me admin” endpoint. The matching user is promoted
+to `role=admin` and `status=active` on boot or login.
+
+### Access
+- Open `/admin.html` while signed in as an active administrator
+- Or use the **Admin** link in the journal sidebar (admins only)
+
+### New registrations
+New accounts are created with `status=pending` and cannot use journal APIs
+until an administrator approves them. Existing users remain `status=active`.
+
+### API (all require auth + admin)
+```
+GET    /api/admin/stats
+GET    /api/admin/users
+GET    /api/admin/users/:id
+POST   /api/admin/users/:id/approve
+POST   /api/admin/users/:id/ban
+POST   /api/admin/users/:id/unban
+POST   /api/admin/users/:id/role
+DELETE /api/admin/users/:id
+GET    /api/admin/audit-log
+```

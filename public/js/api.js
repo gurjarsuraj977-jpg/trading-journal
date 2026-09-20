@@ -20,6 +20,13 @@ async function api(url,opts={}){
     throw Error(d.error||"Session expired");
   }
 
+  if(r.status===403){
+    const err=Error(d.error||"Forbidden");
+    err.status=403;
+    err.code=d.status||null;
+    throw err;
+  }
+
   if(!r.ok)throw Error(d.error||"Request failed");
 
   return d;

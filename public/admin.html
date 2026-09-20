@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GhostTrader — Admin Control Center</title>
+<script>
+(function(){
+  try{
+    var saved=localStorage.getItem('ghosttrader-theme');
+    document.documentElement.setAttribute('data-theme',saved==='light'?'light':'dark');
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="admin-body">
+
+<div id="adminGate" class="auth-card" style="margin:12vh auto;text-align:center">
+  <div class="brand-mark" style="margin:0 auto 14px">G</div>
+  <div class="logo">GHOSTTRADER</div>
+  <p id="gateMsg">Checking administrator access…</p>
+  <a href="/" class="link">Back to journal</a>
+</div>
+
+<div id="adminApp" class="hide">
+
+<aside class="sidebar admin-sidebar">
+  <div class="side-brand">
+    <div class="brand-mark small">G</div>
+    <div>
+      <b>GHOSTTRADER</b>
+      <small>ADMIN CENTER</small>
+    </div>
+  </div>
+
+  <div class="side-section">
+    <span>ADMIN</span>
+    <nav>
+      <button data-admin-page="overview" class="active"><i>⌂</i><span>Overview</span></button>
+      <button data-admin-page="users"><i>▣</i><span>Users</span></button>
+      <button data-admin-page="pending"><i>◌</i><span>Pending</span></button>
+      <button data-admin-page="banned"><i>⊘</i><span>Banned</span></button>
+      <button data-admin-page="activity"><i>▤</i><span>Activity</span></button>
+      <button data-admin-page="system"><i>⚙</i><span>System</span></button>
+    </nav>
+  </div>
+
+  <div class="side-bottom">
+    <div class="profile">
+      <div class="avatar" id="adminAvatar">A</div>
+      <div>
+        <b id="adminName">Admin</b>
+        <small id="adminEmail">—</small>
+      </div>
+    </div>
+    <a href="/" class="logout" style="display:block;text-decoration:none">← <span>Back to Journal</span></a>
+    <button id="adminLogout" class="logout" type="button">↪ <span>Log out</span></button>
+  </div>
+</aside>
+
+<main class="admin-main">
+
+<header class="topbar">
+  <div class="crumb">
+    <small>ADMIN</small>
+    <strong id="adminTitle">Overview</strong>
+  </div>
+  <div class="top-actions">
+    <button id="adminThemeToggle" class="secondary theme-toggle" type="button">☀ <span>Light mode</span></button>
+  </div>
+</header>
+
+<!-- OVERVIEW -->
+<section id="admin-overview" class="page">
+  <div class="welcome">
+    <div>
+      <span class="eyebrow">CONTROL CENTER</span>
+      <h1>Admin overview</h1>
+      <p>Registered accounts, approval queue, and recent administrative actions.</p>
+    </div>
+  </div>
+  <div id="adminStats" class="stats-grid six"></div>
+  <div class="dashboard-grid">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Recent registrations</h2>
+          <p>Newest accounts on the platform</p>
+        </div>
+      </div>
+      <div id="recentRegs"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Recent admin actions</h2>
+          <p>Latest audit events</p>
+        </div>
+      </div>
+      <div id="recentActions"></div>
+    </div>
+  </div>
+</section>
+
+<!-- USERS -->
+<section id="admin-users" class="page hide">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">USERS</span>
+      <h1>User management</h1>
+    </div>
+  </div>
+  <div class="panel filters admin-filters">
+    <input id="userQ" placeholder="Search name or email">
+    <select id="userStatus">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="pending">Pending</option>
+      <option value="banned">Banned</option>
+    </select>
+    <select id="userRole">
+      <option value="">All roles</option>
+      <option value="user">User</option>
+      <option value="admin">Administrator</option>
+    </select>
+    <select id="userSort">
+      <option value="created_at">Newest</option>
+      <option value="name">Name</option>
+      <option value="email">Email</option>
+      <option value="last_login_at">Last login</option>
+    </select>
+    <button id="userSearch" class="secondary" type="button">Search</button>
+  </div>
+  <div class="panel">
+    <div id="userTable"></div>
+    <div id="userPager" class="admin-pager"></div>
+  </div>
+</section>
+
+<!-- PENDING -->
+<section id="admin-pending" class="page hide">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">APPROVAL</span>
+      <h1>Pending accounts</h1>
+      <p class="section-sub">New registrations waiting for administrator approval.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div id="pendingTable"></div>
+    <div id="pendingPager" class="admin-pager"></div>
+  </div>
+</section>
+
+<!-- BANNED -->
+<section id="admin-banned" class="page hide">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">SECURITY</span>
+      <h1>Banned users</h1>
+    </div>
+  </div>
+  <div class="panel">
+    <div id="bannedTable"></div>
+    <div id="bannedPager" class="admin-pager"></div>
+  </div>
+</section>
+
+<!-- ACTIVITY -->
+<section id="admin-activity" class="page hide">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">AUDIT</span>
+      <h1>Admin activity</h1>
+      <p class="section-sub">Sensitive administrative actions recorded for accountability.</p>
+    </div>
+  </div>
+  <div class="panel filters admin-filters">
+    <select id="auditAction">
+      <option value="">All actions</option>
+      <option value="USER_APPROVED">Approved</option>
+      <option value="USER_BANNED">Banned</option>
+      <option value="USER_UNBANNED">Unbanned</option>
+      <option value="ROLE_CHANGED">Role changed</option>
+      <option value="USER_DELETED">Deleted</option>
+    </select>
+    <button id="auditSearch" class="secondary" type="button">Filter</button>
+  </div>
+  <div class="panel">
+    <div id="auditTable"></div>
+    <div id="auditPager" class="admin-pager"></div>
+  </div>
+</section>
+
+<!-- SYSTEM -->
+<section id="admin-system" class="page hide">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">SYSTEM</span>
+      <h1>System</h1>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="metric-list" id="systemInfo">
+      <p><span>Admin Control Center</span><b>GhostTrader V8</b></p>
+      <p><span>Authorization</span><b>Server-side requireAdmin</b></p>
+      <p><span>Bootstrap</span><b>INITIAL_ADMIN_EMAIL (server env)</b></p>
+      <p><span>Audit log</span><b>admin_audit_log</b></p>
+      <p><span>Token invalidation</span><b>token_version on ban / role change</b></p>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<!-- Confirm modal -->
+<div id="adminModal" class="modal hide">
+  <div class="modal-card" style="width:min(480px,94vw)">
+    <button id="adminModalClose" class="x" type="button">×</button>
+    <div class="modal-title">
+      <span class="eyebrow">CONFIRM</span>
+      <h2 id="adminModalTitle">Confirm</h2>
+    </div>
+    <p id="adminModalBody" style="color:var(--muted);line-height:1.5"></p>
+    <div id="adminModalExtra" style="margin-top:12px"></div>
+    <div class="modal-actions">
+      <button id="adminModalCancel" class="secondary" type="button">Cancel</button>
+      <button id="adminModalOk" class="primary" type="button">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail drawer -->
+<div id="userDetailModal" class="modal hide">
+  <div class="modal-card" style="width:min(640px,96vw)">
+    <button id="userDetailClose" class="x" type="button">×</button>
+    <div class="modal-title">
+      <span class="eyebrow">USER</span>
+      <h2 id="userDetailTitle">User</h2>
+    </div>
+    <div id="userDetailBody"></div>
+  </div>
+</div>
+
+<script src="/js/utils.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

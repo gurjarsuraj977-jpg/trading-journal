@@ -24,6 +24,7 @@ const {createExportRouter}=require("./routes/export-routes");
 const {getCurrencyConversionRate}=require("./market-data/twelve-data");
 const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
 const {createMT5Router}=require("./mt5/mt5-routes");
+const {createAdminRouter}=require("./routes/admin-routes");
 /*
  * Batch 1B — JWT secret hardening.
  * Production must never silently sign tokens with the public
@@ -36,13 +37,13 @@ if(process.env.NODE_ENV==="production"&&!process.env.JWT_SECRET){
 }
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
 app.use(express.json({limit:"5mb"}));app.use(cookieParser());app.use(express.static(path.join(__dirname,"public")));
-const auth=createAuthMiddleware({SECRET});
+const auth=createAuthMiddleware({SECRET,db});
 
 app.use("/api/market-data",createMarketDataRouter({db,auth}));
 app.use("/api/market-data",createMarketDataProviderRouter({db,auth}));
 app.use("/api/tradelocker",createTradeLockerRouter({db,auth}));
 app.use("/api/mt5",createMT5Router({db,auth}));
-function token(u){return jwt.sign({id:u.id,name:u.name,email:u.email},SECRET,{expiresIn:"7d"})}
+function token(u){return jwt.sign({id:u.id,name:u.name,email:u.email,token_version:Number(u.token_version||0)},SECRET,{expiresIn:"7d"})}
 const setCookie=(res,t)=>res.cookie("gt_token",t,{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:604800000});
 app.use("/api/auth",createAuthRouter({db,bcrypt,token,setCookie,auth}));
 app.use("/api/accounts",createAccountRouter({db,auth,n}));
@@ -719,5 +720,6 @@ app.use(createSimulationRouter({db,auth,n}));
 app.use("/api/ai",createAiCoachRouter({db,auth}));
 app.use("/api/import",createImportRouter({db,auth,n}));
 app.use("/api",createExportRouter({db,auth,fields}));
+app.use("/api/admin",createAdminRouter({db,auth}));
 app.get("/{*splat}",(req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
 init({db}).then(()=>app.listen(PORT,"0.0.0.0",()=>console.log("GhostTrader V2 running on "+PORT))).catch(e=>{console.error(e);process.exit(1)});

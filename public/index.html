@@ -32,6 +32,18 @@
   </div>
 </div>
 
+<div id="accountHold" class="hide">
+  <div class="auth-card hold-card">
+    <div class="brand-mark">G</div>
+    <div class="logo">GHOSTTRADER</div>
+    <h2 id="holdTitle" style="margin:12px 0 8px;font-size:18px;">Account status</h2>
+    <p id="holdBody" style="color:var(--muted);margin:0 0 20px;line-height:1.5;">
+      Please wait while your account is reviewed.
+    </p>
+    <button id="holdLogout" class="link" type="button">Log out</button>
+  </div>
+</div>
+
 <div id="app" class="hide">
 
 <aside class="sidebar">
@@ -120,6 +132,10 @@
       </button>
 
       <input id="csvFile" type="file" accept=".csv,text/csv" hidden>
+
+      <a id="adminNavLink" class="nav-link hide" href="/admin.html">
+        <i>⚙</i><span>Admin</span>
+      </a>
     </nav>
   </div>
 
