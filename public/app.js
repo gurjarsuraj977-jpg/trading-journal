@@ -40,6 +40,10 @@ if(p==='accounts'){
       e.message
     ));
 
+  if(typeof refreshConnectionBadges==='function'){
+    refreshConnectionBadges().catch(()=>{});
+  }
+
 }
 
   if(p==='playbooks')

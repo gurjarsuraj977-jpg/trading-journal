@@ -1315,15 +1315,27 @@
 
     </div>
 
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="compareAccountsBtn" class="secondary" type="button">
         Compare
+      </button>
+      <button id="connectAccountBtn" class="secondary" type="button">
+        ＋ Connect Account
       </button>
       <button id="newacc" class="primary" type="button">
         ＋ Add Account
       </button>
     </div>
 
+  </div>
+
+  <div class="acc-broker-row" id="accBrokerRow">
+    <button class="status" id="tlStatusPill" type="button">
+      <span></span> TradeLocker — Not connected
+    </button>
+    <button class="status" id="mt5StatusPill" type="button">
+      <span></span> MT5 — Not connected
+    </button>
   </div>
 
   <div id="accountsSummary" class="stats-grid" style="margin-bottom:16px"></div>
@@ -1337,7 +1349,124 @@
 
 </div>
 
-<div class="panel tradelocker-panel">
+</section>
+
+</main>
+</div>
+
+
+<!-- ============================================================
+     CONNECT ACCOUNT — broker selection
+     ============================================================ -->
+
+<div id="connectAccountModal" class="modal hide">
+  <div class="modal-card">
+    <button id="connectAccountClose" class="x" type="button">×</button>
+
+    <div class="modal-title">
+      <span class="eyebrow">ACCOUNTS</span>
+      <h2>Connect Account</h2>
+      <p class="section-sub" style="margin-bottom:6px">Connect a trading account to sync your activity with GhostTrader.</p>
+    </div>
+
+    <div class="broker-grid">
+      <button class="broker-card" type="button" id="chooseMt5">
+        <span class="broker-card-name">MT5</span>
+        <span class="broker-card-sub">MetaTrader 5</span>
+        <span class="broker-card-desc">Connect your MT5 trading account.</span>
+        <span class="broker-card-arrow">→</span>
+      </button>
+
+      <button class="broker-card" type="button" id="chooseTradeLocker">
+        <span class="broker-card-name">TradeLocker</span>
+        <span class="broker-card-sub">TradeLocker</span>
+        <span class="broker-card-desc">Connect your TradeLocker trading account.</span>
+        <span class="broker-card-arrow">→</span>
+      </button>
+    </div>
+
+    <div class="modal-actions" style="justify-content:center;border-top:0;padding-top:0">
+      <button class="ghost" type="button" id="connectAccountCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MT5 CONNECT MODAL
+     ============================================================ -->
+
+<div id="mt5ConnectModal" class="modal hide">
+  <div class="modal-card">
+    <button id="mt5ConnectClose" class="x" type="button">×</button>
+
+    <button class="ghost back-btn" type="button" id="mt5BackBtn">← Back</button>
+
+    <div class="modal-title">
+      <span class="eyebrow">MT5</span>
+      <h2>MetaTrader 5</h2>
+    </div>
+
+    <div class="panel-head">
+      <p class="muted" style="margin:0">Connect your MT5 trading account to synchronize trading data with GhostTrader.</p>
+      <span id="mt5StatusBadge" class="status">
+        <span></span> Not connected
+      </span>
+    </div>
+
+    <div id="mt5ConnectedBox" class="form-grid hide" style="margin-top:16px">
+      <div>
+        <span class="muted">Broker</span>
+        <strong id="mt5BrokerValue">—</strong>
+      </div>
+      <div>
+        <span class="muted">Server</span>
+        <strong id="mt5ServerValue">—</strong>
+      </div>
+      <div>
+        <span class="muted">Account login</span>
+        <strong id="mt5LoginValue">—</strong>
+      </div>
+      <div>
+        <span class="muted">Account name</span>
+        <strong id="mt5AccountNameValue">—</strong>
+      </div>
+      <div>
+        <span class="muted">Currency</span>
+        <strong id="mt5CurrencyValue">—</strong>
+      </div>
+      <div>
+        <span class="muted">Status</span>
+        <strong id="mt5ConnStatusValue">—</strong>
+      </div>
+    </div>
+
+    <div id="mt5NotAvailableBox" class="muted" style="margin-top:16px">
+      MT5 connection setup isn't available in this version of GhostTrader yet —
+      the account-linking step hasn't shipped. This screen will show your
+      connection status and let you manage it as soon as it does.
+    </div>
+
+    <div class="modal-actions">
+      <button id="disconnectMt5" class="secondary hide" type="button">Disconnect</button>
+    </div>
+
+    <div id="mt5Message" class="muted" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TRADELOCKER CONNECT MODAL
+     (existing TradeLocker panel, unchanged — only re-parented
+     from a static section of the Accounts page into this modal)
+     ============================================================ -->
+
+<div id="tradeLockerConnectModal" class="modal hide">
+  <div class="modal-card">
+    <button id="tradeLockerConnectClose" class="x" type="button">×</button>
+
+    <button class="ghost back-btn" type="button" id="tlBackBtn">← Back</button>
+
+<div class="panel tradelocker-panel" style="border:0;box-shadow:none;padding:0">
   <div class="panel-head">
     <div>
       <span class="eyebrow">TRADELOCKER</span>
@@ -1508,11 +1637,8 @@
     style="margin-top:14px;"
   ></div>
 </div>
-</section>
-
-</main>
+  </div>
 </div>
-
 
 <!-- ============================================================
      ACCOUNT FORM MODAL (create / edit)
@@ -1953,6 +2079,7 @@
 <script src="/js/calendar.js"></script>
 <script src="/js/analytics.js"></script>
 <script src="/js/accounts.js"></script>
+<script src="/js/connect-account.js"></script>
 <script src="/js/insights-reports.js"></script>
 <script src="/js/playbooks.js"></script>
 <script src="/js/execution.js"></script>

@@ -240,3 +240,31 @@ html[data-theme="dark"] .acc-tabs{border-color:#243143}
   .modal-card.wide{width:96vw;padding:16px}
   .acc-tabs{overflow-x:auto;white-space:nowrap}
 }
+
+/* ============================================================
+   CONNECT ACCOUNT FLOW — broker selection layer
+   ============================================================ */
+.acc-broker-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.acc-broker-row .status{cursor:pointer;border:1px solid #dce8e1}
+.acc-broker-row .status.connected{border-color:#cdeedd;background:#f0fbf5;color:#188a5c}
+.acc-broker-row .status.connected span{background:var(--green)}
+.acc-broker-row .status:not(.connected){background:#f5f7fa;border-color:var(--line);color:#7b8796}
+.acc-broker-row .status:not(.connected) span{background:#b7c0cc}
+.broker-grid{display:grid;grid-template-columns:1fr;gap:10px;margin:18px 0 4px}
+.broker-card{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;gap:2px 10px;text-align:left;border:1px solid var(--line);background:#fbfcfe;border-radius:11px;padding:16px 18px;transition:.15s}
+.broker-card:hover{border-color:#8eb8ed;box-shadow:0 6px 18px rgba(23,105,210,.09);transform:translateY(-1px)}
+.broker-card-name{font-size:15px;font-weight:800;grid-column:1;grid-row:1}
+.broker-card-sub{display:none}
+.broker-card-desc{grid-column:1;grid-row:2;color:var(--muted);font-size:11px}
+.broker-card-arrow{grid-column:2;grid-row:1/3;font-size:18px;color:#8eb8ed;font-weight:900}
+.back-btn{padding:0;margin-bottom:10px;font-size:11px;font-weight:800}
+
+html[data-theme="dark"] .acc-broker-row .status:not(.connected){background:#0f1824;border-color:#243143;color:#94a3b8}
+html[data-theme="dark"] .acc-broker-row .status.connected{background:rgba(19,163,107,.14);border-color:transparent;color:#3fd394}
+html[data-theme="dark"] .broker-card{background:#0d151f;border-color:#243143}
+html[data-theme="dark"] .broker-card:hover{border-color:#3a577e}
+
+@media(max-width:760px){
+  .broker-grid{grid-template-columns:1fr}
+  .acc-broker-row{flex-direction:column;align-items:flex-start}
+}
