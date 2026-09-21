@@ -397,6 +397,57 @@ await db(`
   )
 `);
 
+/*
+ * Accounts V2 — Account Command Center.
+ * Additive, non-destructive: every new column has a safe default, so
+ * no existing account or trade is affected until a user explicitly
+ * edits an account. See migrations/015_accounts_v2.sql for the
+ * standalone migration form of this same change.
+ */
+await db(`
+  ALTER TABLE accounts
+    ADD COLUMN IF NOT EXISTS broker VARCHAR(80),
+    ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) NOT NULL DEFAULT 'manual',
+    ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+`);
+
+await db(`
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'accounts_type_check'
+    ) THEN
+      ALTER TABLE accounts
+        ADD CONSTRAINT accounts_type_check
+        CHECK (account_type IN ('manual','prop','personal','demo','evaluation'));
+    END IF;
+  END $$;
+`);
+
+await db(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_one_primary_per_user
+  ON accounts(user_id) WHERE is_primary
+`);
+
+await db(`
+  UPDATE accounts a
+  SET is_primary = TRUE
+  WHERE a.id = (
+    SELECT a2.id FROM accounts a2
+    WHERE a2.user_id = a.user_id
+    ORDER BY a2.active DESC, a2.created_at ASC, a2.id ASC
+    LIMIT 1
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM accounts p WHERE p.user_id = a.user_id AND p.is_primary
+  )
+`);
+
+await db(`CREATE INDEX IF NOT EXISTS idx_accounts_user_active ON accounts(user_id, active)`);
+await db(`CREATE INDEX IF NOT EXISTS idx_accounts_user_type ON accounts(user_id, account_type)`);
+
 await db(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_users_created ON users(created_at DESC)`);

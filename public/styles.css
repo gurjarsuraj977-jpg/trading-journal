@@ -152,3 +152,91 @@ html[data-theme="dark"] .nav-link:hover{background:rgba(77,156,255,.12);color:#6
 @media(max-width:760px){
   .admin-body .admin-main{margin-left:62px;padding:0 12px 30px}
 }
+
+/* ============================================================
+   ACCOUNTS V2 — Account Command Center
+   ============================================================ */
+.section-head .section-sub{width:100%;margin:2px 0 0;color:var(--muted);font-size:12px}
+.account-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.account-card{position:relative;border:1px solid var(--line);border-radius:11px;padding:16px;background:#fbfcfe;display:flex;flex-direction:column;gap:12px;transition:.15s}
+.account-card:hover{box-shadow:var(--shadow);border-color:#c7d3e2}
+.account-card.archived{opacity:.72}
+.acc-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.acc-card-id h3{margin:0;font-size:15px;letter-spacing:-.2px}
+.acc-card-sub{margin:3px 0 0;color:var(--muted);font-size:11px}
+.acc-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.acc-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 7px;border-radius:99px;border:1px solid transparent}
+.acc-badge-primary{background:#fff4de;color:#9a6b0a;border-color:#f3ddab}
+.acc-badge-active{background:#f0fbf5;color:#188a5c;border-color:#cdeedd}
+.acc-badge-inactive{background:#f2f4f7;color:#71798a;border-color:#e2e6ec}
+.acc-badge-type{background:#eef4fd;color:#1769d2;border-color:#d9e8fb}
+.acc-menu-wrap{position:relative}
+.acc-menu-btn{border:1px solid var(--line);background:#fff;color:#647184;width:30px;height:30px;border-radius:8px;font-weight:900;line-height:1;padding:0}
+.acc-menu{position:absolute;right:0;top:36px;z-index:15;min-width:172px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 14px 34px rgba(20,30,50,.16);padding:6px;display:none}
+.acc-menu.show{display:block}
+.acc-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:7px;font-size:12px;font-weight:600;color:var(--text)}
+.acc-menu button:hover{background:#f2f6fb}
+.acc-menu button.danger{color:var(--red)}
+.acc-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:11px 0;border-top:1px solid #eef1f5;border-bottom:1px solid #eef1f5}
+.acc-metric{display:flex;flex-direction:column;gap:3px}
+.acc-metric span{font-size:9px;color:#98a2af;font-weight:800;letter-spacing:.4px;text-transform:uppercase}
+.acc-metric b{font-size:13px}
+.acc-card-foot{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}
+.acc-card-actions{display:flex;gap:8px}
+.acc-card-actions .primary,.acc-card-actions .secondary{flex:1;padding:8px 10px;font-size:12px}
+.account-empty{grid-column:1/-1;text-align:center;padding:46px 20px;color:var(--muted)}
+.account-empty b{display:block;color:var(--text);font-size:15px;margin-bottom:5px}
+
+/* Account form modal */
+.form-section{grid-column:1/-1;margin:6px 0 -2px;font-size:10px;font-weight:800;letter-spacing:1.2px;color:#98a2af;text-transform:uppercase;border-top:1px solid var(--line);padding-top:14px}
+.form-section:first-child{border-top:0;padding-top:0;margin-top:0}
+.form-check{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;grid-column:1/-1}
+.form-check input{width:auto}
+.form-hint{grid-column:1/-1;margin:-4px 0 0;font-size:10px;color:#98a2af}
+
+/* Account detail modal */
+.modal-card.wide{width:min(1040px,96vw)}
+.acc-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.acc-detail-head h2{margin:2px 0 0;font-size:20px}
+.acc-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.acc-tabs button{border:0;background:transparent;padding:10px 4px;margin-right:18px;font-size:12px;font-weight:700;color:#8b95a3;border-bottom:2px solid transparent}
+.acc-tabs button.active{color:var(--blue);border-bottom-color:var(--blue)}
+.acc-tab-panel{display:none}
+.acc-tab-panel.active{display:block}
+.acc-health{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);margin-bottom:16px}
+.acc-health-track{flex:1;height:8px;border-radius:99px;background:#eef1f5;overflow:hidden}
+.acc-health-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#1769d2,#13a36b)}
+.acc-health b{font-size:20px;min-width:46px;text-align:right}
+.acc-health small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.acc-timeline p{display:flex;justify-content:space-between;margin:0;padding:9px 2px;border-bottom:1px solid #edf0f4;font-size:11px;color:#7b8796}
+.acc-timeline p:last-child{border-bottom:0}
+.acc-timeline b{color:var(--text)}
+#acctEquityChart{height:180px}
+.acc-compare-table{width:100%;border-collapse:collapse;font-size:11px}
+.acc-compare-table th,.acc-compare-table td{padding:9px 10px;border-bottom:1px solid #edf0f4;text-align:left}
+.acc-compare-table th:first-child,.acc-compare-table td:first-child{color:#8b95a3;font-weight:700}
+.acc-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.acc-picker label{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600}
+.acc-picker input{width:auto}
+
+html[data-theme="dark"] .account-card.archived{opacity:.6}
+html[data-theme="dark"] .acc-metrics{border-color:#243143}
+html[data-theme="dark"] .acc-menu{background:#0f1824;border-color:#243143}
+html[data-theme="dark"] .acc-menu button:hover{background:#16202e}
+html[data-theme="dark"] .acc-menu-btn{background:#0f1824;border-color:#243143;color:#aeb8c6}
+html[data-theme="dark"] .acc-badge-active{background:rgba(19,163,107,.14);color:#3fd394;border-color:transparent}
+html[data-theme="dark"] .acc-badge-inactive{background:rgba(148,163,184,.14);color:#94a3b8;border-color:transparent}
+html[data-theme="dark"] .acc-badge-primary{background:rgba(245,180,40,.16);color:#f5c65a;border-color:transparent}
+html[data-theme="dark"] .acc-badge-type{background:rgba(77,156,255,.14);color:#7fb2ff;border-color:transparent}
+html[data-theme="dark"] .acc-health{background:#0d151f;border-color:#243143}
+html[data-theme="dark"] .acc-health-track{background:#1a2634}
+html[data-theme="dark"] .form-section{border-color:#243143}
+html[data-theme="dark"] .acc-tabs{border-color:#243143}
+
+@media(max-width:1100px){.account-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){
+  .account-grid{grid-template-columns:1fr}
+  .acc-metrics{grid-template-columns:repeat(2,1fr)}
+  .modal-card.wide{width:96vw;padding:16px}
+  .acc-tabs{overflow-x:auto;white-space:nowrap}
+}

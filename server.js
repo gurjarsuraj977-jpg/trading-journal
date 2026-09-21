@@ -64,6 +64,9 @@ app.get("/api/trades",auth,async(req,res)=>{try{
   if(req.query.result==="win")w.push("profit_loss>0");
   if(req.query.result==="loss")w.push("profit_loss<0");
   if(req.query.account){v.push(String(req.query.account));w.push(`account=$${v.length}`)}
+  if(req.query.strategy){v.push(String(req.query.strategy).trim());w.push(`strategy=$${v.length}`)}
+  if(req.query.session){v.push(String(req.query.session).trim());w.push(`session=$${v.length}`)}
+  if(req.query.playbookId && Number.isInteger(Number(req.query.playbookId))){v.push(Number(req.query.playbookId));w.push(`playbook_id=$${v.length}`)}
   if(req.query.from && /^\d{4}-\d{2}-\d{2}$/.test(req.query.from)){v.push(req.query.from);w.push(`trade_date >= $${v.length}::date::timestamp`)}
   if(req.query.to && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to)){v.push(req.query.to);w.push(`trade_date < ($${v.length}::date + INTERVAL '1 day')`)}
   if(req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)){

@@ -1310,15 +1310,23 @@
     <div>
       <span class="eyebrow">CAPITAL</span>
 
-      <h1>Trading accounts</h1>
+      <h1>Accounts</h1>
+      <p class="section-sub">Manage trading accounts, capital, risk exposure and performance.</p>
 
     </div>
 
-    <button id="newacc" class="primary">
-      ＋ Add account
-    </button>
+    <div style="display:flex;gap:8px">
+      <button id="compareAccountsBtn" class="secondary" type="button">
+        Compare
+      </button>
+      <button id="newacc" class="primary" type="button">
+        ＋ Add Account
+      </button>
+    </div>
 
   </div>
+
+  <div id="accountsSummary" class="stats-grid" style="margin-bottom:16px"></div>
 
 <div class="panel">
 
@@ -1505,6 +1513,177 @@
 </main>
 </div>
 
+
+<!-- ============================================================
+     ACCOUNT FORM MODAL (create / edit)
+     ============================================================ -->
+
+<div id="accountModal" class="modal hide">
+  <div class="modal-card">
+    <button id="accountModalClose" class="x" type="button">×</button>
+
+    <div class="modal-title">
+      <span class="eyebrow">ACCOUNTS</span>
+      <h2 id="accountModalTitle">Add account</h2>
+    </div>
+
+    <form id="accountForm" class="form">
+      <input id="accId" type="hidden">
+
+      <div class="form-section">Basic information</div>
+
+      <label>
+        Account name
+        <input id="accName" required maxlength="100" placeholder="e.g. FTMO 100K">
+      </label>
+
+      <label>
+        Broker / prop firm
+        <input id="accBroker" maxlength="80" placeholder="Optional">
+      </label>
+
+      <label>
+        Account type
+        <select id="accType">
+          <option value="manual">Manual</option>
+          <option value="prop">Prop firm</option>
+          <option value="personal">Personal</option>
+          <option value="demo">Demo</option>
+          <option value="evaluation">Evaluation</option>
+        </select>
+      </label>
+
+      <div class="form-section">Capital</div>
+
+      <label>
+        Starting balance
+        <input id="accBalance" type="number" step="any" min="0" value="10000">
+      </label>
+
+      <label>
+        Currency
+        <input id="accCurrency" maxlength="10" value="USD" style="text-transform:uppercase">
+      </label>
+      <p id="accCurrencyHint" class="form-hint hide">Currency can't be changed once an account has trades attached.</p>
+
+      <div class="form-section">Configuration</div>
+
+      <label class="form-check">
+        <input id="accIsPrimary" type="checkbox">
+        Set as primary account
+      </label>
+
+      <label class="form-check" id="accActiveRow">
+        <input id="accActive" type="checkbox" checked>
+        Active (selectable for new trades)
+      </label>
+    </form>
+
+    <div class="modal-actions">
+      <button class="secondary" type="button" id="accountModalCancel">Cancel</button>
+      <button class="primary" type="button" id="accountModalSave">Save account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ACCOUNT DETAIL MODAL — Account Command Center
+     ============================================================ -->
+
+<div id="accountDetailModal" class="modal hide">
+  <div class="modal-card wide">
+    <button id="accountDetailClose" class="x" type="button">×</button>
+
+    <div class="acc-detail-head">
+      <div>
+        <span class="eyebrow" id="accDetailEyebrow">ACCOUNT</span>
+        <h2 id="accDetailName">—</h2>
+        <div class="acc-badges" id="accDetailBadges"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="secondary" type="button" id="accDetailEditBtn">Edit</button>
+      </div>
+    </div>
+
+    <div class="acc-tabs">
+      <button data-tab="overview" class="active" type="button">Overview</button>
+      <button data-tab="performance" type="button">Performance</button>
+      <button data-tab="risk" type="button">Risk</button>
+      <button data-tab="trades" type="button">Trades</button>
+    </div>
+
+    <div class="acc-tab-panel active" data-panel="overview">
+      <div class="acc-health" id="accHealthBox">
+        <div style="flex:1">
+          <b id="accHealthScore">—</b>
+          <small>Account health — an analytical estimate from real trading data, not financial advice.</small>
+          <div class="acc-health-track" style="margin-top:8px">
+            <div class="acc-health-fill" id="accHealthFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="accOverviewStats" style="margin-bottom:16px"></div>
+
+      <canvas id="acctEquityChart"></canvas>
+
+      <h3 style="font-size:13px;margin:18px 0 6px">Timeline</h3>
+      <div class="acc-timeline" id="accTimeline"></div>
+    </div>
+
+    <div class="acc-tab-panel" data-panel="performance">
+      <div class="stats-grid" id="accPerfStats" style="margin-bottom:4px"></div>
+      <div class="metric-list" id="accPerfList"></div>
+    </div>
+
+    <div class="acc-tab-panel" data-panel="risk">
+      <div class="metric-list" id="accRiskList"></div>
+      <p class="form-hint" style="margin-top:10px">Risk figures come from GhostTrader's existing risk engine values stored on each trade — nothing here is recalculated independently.</p>
+    </div>
+
+    <div class="acc-tab-panel" data-panel="trades">
+      <div class="filters" id="accTradeFilters">
+        <input id="accFSymbol" placeholder="Symbol">
+        <select id="accFDirection">
+          <option value="">Any side</option>
+          <option value="BUY">BUY</option>
+          <option value="SELL">SELL</option>
+        </select>
+        <select id="accFResult">
+          <option value="">Any result</option>
+          <option value="win">Wins</option>
+          <option value="loss">Losses</option>
+        </select>
+        <input id="accFStrategy" placeholder="Strategy">
+        <input id="accFSession" placeholder="Session">
+        <input id="accFFrom" type="date">
+        <input id="accFTo" type="date">
+        <button class="secondary" type="button" id="accFApply">Filter</button>
+        <button class="ghost" type="button" id="accFReset">Reset</button>
+      </div>
+      <div id="accTradesTable"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ACCOUNT COMPARISON MODAL
+     ============================================================ -->
+
+<div id="compareModal" class="modal hide">
+  <div class="modal-card">
+    <button id="compareModalClose" class="x" type="button">×</button>
+    <div class="modal-title">
+      <span class="eyebrow">ACCOUNTS</span>
+      <h2>Compare accounts</h2>
+    </div>
+    <div class="acc-picker" id="comparePicker"></div>
+    <div class="modal-actions" style="justify-content:flex-start;border-top:0;padding-top:0;margin-top:0">
+      <button class="primary" type="button" id="compareRunBtn">Compare selected</button>
+    </div>
+    <div id="compareResults" style="margin-top:14px"></div>
+  </div>
+</div>
 
 <!-- ============================================================
      TRADE MODAL
