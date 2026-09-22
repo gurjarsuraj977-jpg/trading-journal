@@ -96,19 +96,23 @@ async function loadTradeLockerConnection(){
     if(d.connected){
       setTradeLockerStatus(true);
 
-      if($("#tlEnvironment") && d.environment){
+      if($("#tlEnvironment") && d.environment && document.activeElement!==$("#tlEnvironment")){
         $("#tlEnvironment").value=d.environment;
       }
 
-      if($("#tlServer") && d.server){
+      if($("#tlServer") && d.server && document.activeElement!==$("#tlServer")){
         $("#tlServer").value=d.server;
       }
 
-      if($("#tlEmail")){
+      // Don't stomp on a field the user is actively typing into — this
+      // status check also runs every time the modal opens, and if it
+      // resolves after the user has already started typing, wiping
+      // the field mid-keystroke looks exactly like "the keyboard closed".
+      if($("#tlEmail") && document.activeElement!==$("#tlEmail")){
         $("#tlEmail").value='';
       }
 
-      if($("#tlPassword")){
+      if($("#tlPassword") && document.activeElement!==$("#tlPassword")){
         $("#tlPassword").value='';
       }
 
@@ -697,12 +701,26 @@ $("#syncTradeLocker")?.addEventListener(
    ========================================================= */
 
 let rt;
+let lastResizeWidth=window.innerWidth;
 
 window.addEventListener('resize',()=>{
 
   clearTimeout(rt);
 
   rt=setTimeout(()=>{
+
+    // Mobile keyboards fire a resize with the SAME width and a
+    // different height. Re-rendering (which replaces DOM via
+    // innerHTML) while an input/select is focused is what breaks
+    // typing, so only re-render for a real layout change: a width
+    // change (rotation, breakpoint) or a resize with nothing focused.
+    const widthChanged=window.innerWidth!==lastResizeWidth;
+    lastResizeWidth=window.innerWidth;
+
+    const activeTag=document.activeElement&&document.activeElement.tagName;
+    const isEditing=activeTag==='INPUT'||activeTag==='TEXTAREA'||activeTag==='SELECT';
+
+    if(!widthChanged&&isEditing)return;
 
     if(
       $("#dashboard") &&
