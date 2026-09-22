@@ -2068,6 +2068,55 @@
 </div>
 
 
+
+<!-- ============================================================
+     MOBILE NAVIGATION (presentation only — calls existing page())
+     ============================================================ -->
+<nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Primary">
+  <button type="button" class="mnav-btn active" data-p="dashboard" aria-label="Dashboard">
+    <i>⌂</i><span>Home</span>
+  </button>
+  <button type="button" class="mnav-btn" data-p="trades" aria-label="Journal">
+    <i>✎</i><span>Journal</span>
+  </button>
+  <button type="button" class="mnav-btn" data-p="analytics" aria-label="Analytics">
+    <i>◈</i><span>Analytics</span>
+  </button>
+  <button type="button" class="mnav-btn" data-p="calendar" aria-label="Calendar">
+    <i>▦</i><span>Calendar</span>
+  </button>
+  <button type="button" class="mnav-btn" id="mobileMoreBtn" aria-label="More" aria-expanded="false" aria-controls="mobileMoreSheet">
+    <i>☰</i><span>More</span>
+  </button>
+</nav>
+
+<div id="mobileMoreSheet" class="mobile-more-sheet hide" role="dialog" aria-label="More pages">
+  <div class="mobile-more-backdrop" id="mobileMoreBackdrop"></div>
+  <div class="mobile-more-panel">
+    <div class="mobile-more-head">
+      <strong>More</strong>
+      <button type="button" class="mobile-more-close" id="mobileMoreClose" aria-label="Close">×</button>
+    </div>
+    <div class="mobile-more-list">
+      <button type="button" class="mobile-more-item" data-p="insights"><i>✦</i><span>Ghost Insights</span></button>
+      <button type="button" class="mobile-more-item" data-p="reports"><i>▤</i><span>Reports</span></button>
+      <button type="button" class="mobile-more-item" data-p="playbooks"><i>☑</i><span>Playbooks</span></button>
+      <button type="button" class="mobile-more-item" data-p="execution"><i>◒</i><span>Execution Lab</span></button>
+      <button type="button" class="mobile-more-item" data-p="simulation"><i>⌁</i><span>Simulation Lab</span></button>
+      <button type="button" class="mobile-more-item" data-p="replay"><i>▶</i><span>Trade Replay</span></button>
+      <button type="button" class="mobile-more-item" data-p="market"><i>▥</i><span>Market Chart</span></button>
+      <button type="button" class="mobile-more-item" data-p="coach"><i>✦</i><span>Ghost AI</span></button>
+      <button type="button" class="mobile-more-item" data-p="missed"><i>⊘</i><span>Missed Trades</span></button>
+      <button type="button" class="mobile-more-item" data-p="accounts"><i>▣</i><span>Accounts</span></button>
+      <button type="button" class="mobile-more-item" id="mobileExportBtn"><i>⇩</i><span>Export CSV</span></button>
+      <button type="button" class="mobile-more-item" id="mobileImportBtn"><i>⇧</i><span>Import CSV</span></button>
+      <a id="mobileAdminLink" class="mobile-more-item hide" href="/admin.html"><i>⚙</i><span>Admin</span></a>
+      <button type="button" class="mobile-more-item" id="mobileThemeBtn"><i>☀</i><span>Toggle theme</span></button>
+      <button type="button" class="mobile-more-item mobile-more-logout" id="mobileLogoutBtn"><i>↪</i><span>Log out</span></button>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <script src="/js/utils.js"></script>
 <script src="/js/api.js"></script>

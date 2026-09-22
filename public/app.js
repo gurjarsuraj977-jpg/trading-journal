@@ -10,6 +10,11 @@ function page(p){
     b.classList.toggle('active',b.dataset.p===p)
   );
 
+  /* Mobile bottom-nav active state (presentation only) */
+  $$('.mnav-btn[data-p]').forEach(b=>
+    b.classList.toggle('active',b.dataset.p===p)
+  );
+
   $("#title").textContent=p[0].toUpperCase()+p.slice(1);
 
   if(p==='dashboard')
@@ -732,3 +737,79 @@ window.addEventListener('resize',()=>{
   },180);
 
 });
+
+
+/* =========================================================
+   MOBILE NAV (presentation only — reuses existing page())
+   ========================================================= */
+(function(){
+  function closeMobileMore(){
+    const sheet=$("#mobileMoreSheet");
+    const btn=$("#mobileMoreBtn");
+    if(sheet)sheet.classList.add('hide');
+    if(btn)btn.setAttribute('aria-expanded','false');
+  }
+
+  function openMobileMore(){
+    const sheet=$("#mobileMoreSheet");
+    const btn=$("#mobileMoreBtn");
+    if(sheet)sheet.classList.remove('hide');
+    if(btn)btn.setAttribute('aria-expanded','true');
+  }
+
+  $$('.mnav-btn[data-p]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      closeMobileMore();
+      page(b.dataset.p);
+    });
+  });
+
+  $("#mobileMoreBtn")?.addEventListener('click',()=>{
+    const sheet=$("#mobileMoreSheet");
+    if(!sheet)return;
+    if(sheet.classList.contains('hide'))openMobileMore();
+    else closeMobileMore();
+  });
+
+  $("#mobileMoreClose")?.addEventListener('click',closeMobileMore);
+  $("#mobileMoreBackdrop")?.addEventListener('click',closeMobileMore);
+
+  $$('.mobile-more-item[data-p]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      closeMobileMore();
+      page(b.dataset.p);
+    });
+  });
+
+  $("#mobileExportBtn")?.addEventListener('click',()=>{
+    closeMobileMore();
+    $("#quickExport")?.click();
+  });
+
+  $("#mobileImportBtn")?.addEventListener('click',()=>{
+    closeMobileMore();
+    $("#importCsv")?.click();
+  });
+
+  $("#mobileThemeBtn")?.addEventListener('click',()=>{
+    $("#themeToggle")?.click();
+  });
+
+  $("#mobileLogoutBtn")?.addEventListener('click',()=>{
+    closeMobileMore();
+    $("#logout")?.click();
+  });
+
+  /* Mirror admin link visibility when admin nav is shown */
+  const adminObs=()=>{
+    const src=$("#adminNavLink");
+    const dst=$("#mobileAdminLink");
+    if(!src||!dst)return;
+    dst.classList.toggle('hide',src.classList.contains('hide'));
+  };
+  adminObs();
+  const adminEl=$("#adminNavLink");
+  if(adminEl&&typeof MutationObserver!=='undefined'){
+    new MutationObserver(adminObs).observe(adminEl,{attributes:true,attributeFilter:['class']});
+  }
+})();

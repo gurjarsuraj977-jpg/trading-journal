@@ -2,25 +2,9 @@ function table(t,full=true){
   if(!t.length)
     return'<p style="color:#98a2af">No trades found.</p>';
 
-  return`
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Symbol</th>
-            <th>Side</th>
-<th>Account</th><th>Risk</th><th>P&L</th><th>R</th>
-            ${
-              full?
-              '<th>Strategy</th><th>Actions</th>':
-              ''
-            }
-          </tr>
-        </thead>
-
-        <tbody>
-          ${t.map(x=>`
+  /* Desktop table + mobile cards from the SAME trade array.
+     No second API, no duplicate state, same editTrade/delTrade handlers. */
+  const rows=t.map(x=>`
             <tr>
               <td>${E(formatDay(x.trade_date))}</td>
               <td><b>${E(x.symbol)}</b></td>
@@ -62,10 +46,67 @@ function table(t,full=true){
                 ''
               }
             </tr>
-          `).join('')}
-        </tbody>
+          `).join('');
+
+  const cards=t.map(x=>{
+    const pl=Number(x.profit_loss||0);
+    const r=Number(x.actual_r||0);
+    const dir=String(x.direction||'').toUpperCase();
+    return`
+      <article class="trade-card ${pl>=0?'trade-card-win':'trade-card-loss'}">
+        <div class="trade-card-top">
+          <div>
+            <b class="trade-card-symbol">${E(x.symbol)}</b>
+            <span class="side-pill">${E(dir)}</span>
+          </div>
+          <div class="trade-card-pnl ${C(x.profit_loss)}">
+            <strong>${M(x.profit_loss)}</strong>
+            <small>${r.toFixed(2)}R</small>
+          </div>
+        </div>
+        <div class="trade-card-meta">
+          <span><em>Date</em>${E(formatDay(x.trade_date))}</span>
+          <span><em>Account</em>${E(x.account||'—')}</span>
+          <span><em>Risk</em>${M(x.risk_amount)} <small class="risk-level ${String(x.risk_level||'UNKNOWN').toLowerCase()}">${E(x.risk_level||'UNKNOWN')}</small></span>
+          ${x.strategy?`<span><em>Strategy</em>${E(x.strategy)}</span>`:''}
+        </div>
+        <details class="trade-card-details">
+          <summary>Details</summary>
+          <div class="trade-card-detail-grid">
+            <span><em>Entry</em>${E(x.entry_price??x.entry??'—')}</span>
+            <span><em>Exit</em>${E(x.exit_price??x.exitPrice??'—')}</span>
+            <span><em>Stop</em>${E(x.stop_loss??x.stopLoss??'—')}</span>
+            <span><em>Target</em>${E(x.take_profit??x.takeProfit??'—')}</span>
+            <span><em>Qty</em>${E(x.quantity??'—')}</span>
+            <span><em>Setup</em>${E(x.setup||'—')}</span>
+            <span><em>Session</em>${E(x.session||'—')}</span>
+            <span><em>Notes</em>${E(x.notes||'—')}</span>
+          </div>
+        </details>
+        ${full?`
+        <div class="trade-card-actions">
+          <button class="secondary" type="button" onclick="editTrade(${Number(x.id)})">Edit</button>
+          <button class="secondary" type="button" onclick="delTrade(${Number(x.id)})">Delete</button>
+        </div>`:''}
+      </article>`;
+  }).join('');
+
+  return`
+    <div class="tablewrap trade-table-desktop">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th>Account</th><th>Risk</th><th>P&L</th><th>R</th>
+            ${full?'<th>Strategy</th><th>Actions</th>':''}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
       </table>
     </div>
+    <div class="trade-cards-mobile">${cards}</div>
   `;
 }
 
