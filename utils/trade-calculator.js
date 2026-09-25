@@ -10,6 +10,16 @@ function finiteOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+/*
+ * A usable contract size must be a FINITE, POSITIVE number.
+ * Note: Number(null) === 0 and Number("") === 0, so null/empty
+ * strings are treated as "not supplied" (null), never as 0.
+ */
+function positiveNumberOrNull(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function round(value, decimals = 4) {
   const n = Number(value);
 
@@ -122,14 +132,18 @@ function calculateTrade({
 
   /*
    * Custom values override the instrument specification.
+   * A contract size is only usable when it is finite AND > 0;
+   * anything else (0, -1, NaN, "abc", Infinity) is treated as
+   * "not supplied" so the explicit MISSING/UNKNOWN diagnostics
+   * below fire instead of a generic invalid-size error.
    */
-  const customContractSize = finiteOrNull(contractSize);
+  const customContractSize = positiveNumberOrNull(contractSize);
   const customLeverage = finiteOrNull(leverage);
 
   const cs =
     customContractSize !== null
       ? customContractSize
-      : finiteOrNull(spec.contractSize);
+      : positiveNumberOrNull(spec.contractSize);
 
   const lev =
     customLeverage !== null
@@ -258,13 +272,33 @@ function calculateTrade({
   }
 
   /*
-   * Unknown instruments are not silently guessed.
+   * Instruments that are recognized but whose contract size is
+   * broker-specific (e.g. US100 / NAS100 / USTEC index CFDs) must
+   * NOT be silently guessed either. They require the broker's
+   * instrument specification (TradeLocker lotSize) or an explicit
+   * custom contractSize.
    */
-  if (!isKnownSymbol && cs === null) {
+  if (
+    !isKnownSymbol &&
+    cs === null
+  ) {
     result.calculationStatus = "UNKNOWN_INSTRUMENT";
     result.error =
       `Unknown instrument "${s}". ` +
       `A valid contract size is required.`;
+
+    return result;
+  }
+
+  if (
+    spec.requiresBrokerContractSize === true &&
+    cs === null
+  ) {
+    result.calculationStatus = "MISSING_CONTRACT_SIZE";
+    result.error =
+      `"${spec.symbol || s}" is recognized, but its contract size ` +
+      `varies by broker. Provide the broker's instrument ` +
+      `specification (e.g. TradeLocker lotSize) as contractSize.`;
 
     return result;
   }

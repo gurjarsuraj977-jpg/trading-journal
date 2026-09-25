@@ -1,3 +1,5 @@
+const { resolveCanonicalSymbol } = require("./instrument-spec");
+
 const SYMBOL_SPECS = {
   XAUUSD: {
     symbol: "XAUUSD",
@@ -121,14 +123,13 @@ const SYMBOL_SPECS = {
 /**
  * Return instrument specification.
  *
+ * Aliases (NAS100, USTEC, ...) resolve to the canonical symbol first.
  * Known symbols return their configured specification.
  * Unknown symbols return an explicit unknown specification
  * instead of silently assuming contractSize = 1.
  */
 function getSymbolSpec(symbol) {
-  const key = String(symbol || "")
-    .trim()
-    .toUpperCase();
+  const key = resolveCanonicalSymbol(symbol);
 
   if (SYMBOL_SPECS[key]) {
     return SYMBOL_SPECS[key];
@@ -149,7 +150,52 @@ function getSymbolSpec(symbol) {
 }
 
 
+/**
+ * Index CFD placeholder specifications.
+ *
+ * Deliberately have NO contract size: US100/NAS100/USTEC and other
+ * index CFD specifications vary by broker (one lot may be $1, $5 or
+ * $10 per index point depending on the TradeLocker/broker setup).
+ *
+ * The purpose is recognition + aliasing only. The actual contract
+ * size must come from the broker's instrument specification
+ * (TradeLocker details.lotSize) or be supplied explicitly as a
+ * custom contractSize when calculating.
+ */
+const INDEX_PLACEHOLDERS = [
+  { canonical: "US100", aliases: ["US100", "NAS100", "NQ100", "USTEC", "USTECH", "US100USD", "NAS100USD", "USTECUSD", "NASDAQ", "NASDAQ100", "TECH100"] },
+  { canonical: "US30", aliases: ["US30", "WALLSTREET30", "WS30", "DJ30", "DOW30"] },
+  { canonical: "US500", aliases: ["US500", "SPX500", "USA500"] },
+  { canonical: "US2000", aliases: ["US2000", "RUSSELL2000"] },
+  { canonical: "UK100", aliases: ["UK100", "GBPCFD"] },
+  { canonical: "GER40", aliases: ["GER40", "DE40", "DAX40"] }
+];
+
+for (const index of INDEX_PLACEHOLDERS) {
+  if (!SYMBOL_SPECS[index.canonical]) {
+    SYMBOL_SPECS[index.canonical] = {
+      symbol: index.canonical,
+      assetClass: "index",
+      baseCurrency: index.canonical,
+      quoteCurrency: "USD",
+      pnlCurrency: "USD",
+      contractSize: null,
+      defaultLeverage: null,
+      priceDecimals: 2,
+      quantityDecimals: 2,
+      known: true,
+      requiresBrokerContractSize: true,
+      note:
+        `${index.canonical} CFD contract size varies by broker. ` +
+        `Use the broker's instrument specification (e.g. TradeLocker lotSize) ` +
+        `or supply an explicit contractSize.`
+    };
+  }
+}
+
+
 module.exports = {
   SYMBOL_SPECS,
-  getSymbolSpec
+  getSymbolSpec,
+  resolveCanonicalSymbol
 };
