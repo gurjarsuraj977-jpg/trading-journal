@@ -6,6 +6,81 @@
 const express = require('express');
 const { TradeLockerClient } = require('./tradelocker-client');
 const { TradeLockerSessionManager } = require('./tradelocker-auth');
+const { validateInstrumentSpec, resolveCanonicalSymbol } = require('../utils/instrument-spec');
+const { getCurrencyConversionRate } = require('../market-data/twelve-data');
+
+/**
+ * Persist the broker's ACTUAL instrument specification into
+ * market_symbols (the existing instrument architecture:
+ * symbol / broker_symbol / price_decimals / quantity_decimals /
+ * tick_size / contract_size).
+ *
+ * Non-destructive: only fills fields that are still NULL/0 so a
+ * manually curated row is never overwritten by a sync.
+ */
+async function upsertMarketSymbolFromBrokerSpec(db, spec) {
+  const symbol =
+    (spec.symbol && String(spec.symbol).trim()) ||
+    resolveCanonicalSymbol(spec.name);
+
+  if (!symbol || !Number.isFinite(spec.lotSize) || spec.lotSize <= 0) {
+    return false;
+  }
+
+  try {
+    await db(
+      `INSERT INTO market_symbols (
+         symbol,
+         display_name,
+         asset_class,
+         quote_asset,
+         broker_symbol,
+         price_decimals,
+         quantity_decimals,
+         tick_size,
+         contract_size,
+         updated_at
+       )
+       VALUES ($1, $2, 'index', $3, $4, $5, $6, $7, $8, NOW())
+       ON CONFLICT (symbol) DO UPDATE SET
+         display_name = COALESCE(market_symbols.display_name, EXCLUDED.display_name),
+         asset_class = CASE
+           WHEN market_symbols.asset_class = 'forex'
+             AND market_symbols.contract_size IS NULL
+             THEN EXCLUDED.asset_class
+           ELSE market_symbols.asset_class
+         END,
+         quote_asset = COALESCE(market_symbols.quote_asset, EXCLUDED.quote_asset),
+         broker_symbol = COALESCE(market_symbols.broker_symbol, EXCLUDED.broker_symbol),
+         tick_size = COALESCE(market_symbols.tick_size, EXCLUDED.tick_size),
+         contract_size = CASE
+           WHEN market_symbols.contract_size IS NULL
+             OR market_symbols.contract_size = 0
+             THEN EXCLUDED.contract_size
+           ELSE market_symbols.contract_size
+         END,
+         updated_at = NOW()`,
+      [
+        symbol,
+        spec.name || symbol,
+        spec.quotingCurrency || 'USD',
+        spec.name || symbol,
+        2,
+        2,
+        spec.tickSize,
+        spec.lotSize
+      ]
+    );
+
+    return true;
+  } catch (err) {
+    console.warn(
+      '[TradeLocker market_symbols upsert warning]:',
+      err.message
+    );
+    return false;
+  }
+}
 
 function createTradeLockerRouter({ db, auth }) {
   if (typeof db !== 'function') {
@@ -1069,20 +1144,27 @@ async function getInstrumentSpec(instrumentId, instrument) {
     );
   }
 
-  const spec = {
+  /*
+   * Strict validation: a missing/zero lotSize is REJECTED here
+   * with an explicit diagnostic instead of being coerced to 0
+   * and silently producing wrong P&L.
+   */
+  const validated = validateInstrumentSpec({
     instrumentId: cacheKey,
-    name: details.name || instrument.name || cacheKey,
-    lotSize: Number(details.lotSize || 0),
-    lotStep: Number(details.lotStep || 0),
-    minLot: Number(details.minLot || 0),
-    maxLot: Number(details.maxLot || 0),
-    quotingCurrency: details.quotingCurrency || null,
-    tickSize:
-      Array.isArray(details.tickSize) &&
-      details.tickSize.length > 0
-        ? Number(details.tickSize[0].tickSize || 0)
-        : 0
-  };
+    name: details.name || (instrument && instrument.name) || cacheKey,
+    lotSize: details.lotSize,
+    lotStep: details.lotStep,
+    minLot: details.minLot,
+    maxLot: details.maxLot,
+    quotingCurrency: details.quotingCurrency,
+    tickSize: details.tickSize
+  });
+
+  if (!validated.valid) {
+    throw new Error(validated.error);
+  }
+
+  const spec = validated.spec;
 
   instrumentDetailsCache.set(cacheKey, spec);
 
@@ -1318,6 +1400,17 @@ const tradeLockerAccountName =
   account.accountName ||
   String(account.id);
 
+/*
+ * TradeLocker account currency. Used to convert P&L when the
+ * instrument's quoting currency differs from the account
+ * currency (same conversion path as manual trades).
+ */
+const tlAccountCurrency = String(
+  account.currency || 'USD'
+)
+  .trim()
+  .toUpperCase();
+
 await db(
   `
   INSERT INTO accounts (
@@ -1397,6 +1490,7 @@ await db(
       // ----------------------------------------------------------
 
       const instrumentDetailsCache = new Map();
+      const invalidInstrumentSpecs = [];
 
       async function getInstrumentSpec(instrumentId, instrument) {
         const cacheKey = String(instrumentId);
@@ -1444,20 +1538,32 @@ await db(
           );
         }
 
-        const spec = {
+        /*
+         * Strict validation: a missing/zero lotSize is REJECTED here
+         * with an explicit diagnostic instead of being coerced to 0
+         * and silently producing wrong P&L.
+         */
+        const validated = validateInstrumentSpec({
           instrumentId: cacheKey,
-          name: details.name || instrument.name || cacheKey,
-          lotSize: Number(details.lotSize || 0),
-          lotStep: Number(details.lotStep || 0),
-          minLot: Number(details.minLot || 0),
-          maxLot: Number(details.maxLot || 0),
-          quotingCurrency: details.quotingCurrency || null,
-          tickSize:
-            Array.isArray(details.tickSize) &&
-            details.tickSize.length > 0
-              ? Number(details.tickSize[0].tickSize || 0)
-              : 0
-        };
+          name:
+            details.name ||
+            (instrument && instrument.name) ||
+            cacheKey,
+          lotSize: details.lotSize,
+          lotStep: details.lotStep,
+          minLot: details.minLot,
+          maxLot: details.maxLot,
+          quotingCurrency: details.quotingCurrency,
+          tickSize: details.tickSize
+        });
+
+        if (!validated.valid) {
+          const err = new Error(validated.error);
+          err.instrumentSpecDiagnostics = validated.diagnostics;
+          throw err;
+        }
+
+        const spec = validated.spec;
 
         instrumentDetailsCache.set(cacheKey, spec);
 
@@ -1548,11 +1654,31 @@ await db(
         const instrument =
           instrumentMap.get(instrumentId);
 
-        const instrumentSpec =
-          await getInstrumentSpec(
+        let instrumentSpec;
+
+        try {
+          instrumentSpec =
+            await getInstrumentSpec(
+              instrumentId,
+              instrument
+            );
+        } catch (specErr) {
+          /*
+           * Invalid instrument specification (e.g. missing/zero
+           * lotSize): never import with a fabricated contract
+           * size. Record the exact diagnostic and skip this
+           * position so valid trades still sync.
+           */
+          invalidInstrumentSpecs.push({
+            positionId,
             instrumentId,
-            instrument
-          );
+            error: specErr.message,
+            diagnostics:
+              specErr.instrumentSpecDiagnostics || null
+          });
+
+          continue;
+        }
 
         const symbol =
           instrumentSpec.name || instrumentId;
@@ -1630,6 +1756,32 @@ await db(
             (grossProfitLossRaw + Number.EPSILON) * 100
           ) / 100;
 
+        /*
+         * If the instrument quotes in a different currency than
+         * the account, convert using the same conversion helper
+         * manual trades use. Failure to convert is recorded as a
+         * diagnostic — never fabricated.
+         */
+        let pnlConversionRate = null;
+        let conversionWarning = null;
+
+        if (
+          instrumentSpec.quotingCurrency &&
+          instrumentSpec.quotingCurrency !== tlAccountCurrency
+        ) {
+          try {
+            const conversion =
+              await getCurrencyConversionRate({
+                fromCurrency: instrumentSpec.quotingCurrency,
+                toCurrency: tlAccountCurrency
+              });
+
+            pnlConversionRate = conversion.rate;
+          } catch (convErr) {
+            conversionWarning = convErr.message;
+          }
+        }
+
         // --------------------------------------------------------
         // SL / TP
         // --------------------------------------------------------
@@ -1673,8 +1825,30 @@ await db(
           takeProfit,
           tradeDate,
           lotSize,
-          grossProfitLoss
+          grossProfitLoss,
+          pnlConversionRate,
+          conversionWarning,
+          instrumentSpec
         });
+      }
+
+      // ----------------------------------------------------------
+      // STORE THE BROKER'S ACTUAL INSTRUMENT SPECIFICATIONS
+      // (market_symbols: symbol / broker_symbol / tick_size /
+      //  contract_size ...). Non-destructive upsert.
+      // ----------------------------------------------------------
+
+      const storedSpecs = new Map();
+
+      for (const trade of normalizedTrades) {
+        const spec = trade.instrumentSpec;
+
+        if (spec && !storedSpecs.has(spec.instrumentId)) {
+          storedSpecs.set(
+            spec.instrumentId,
+            await upsertMarketSymbolFromBrokerSpec(db, spec)
+          );
+        }
       }
 
       // ----------------------------------------------------------
@@ -1783,8 +1957,22 @@ tradeLockerAccountName,
         inserted,
         skipped,
 
+        /*
+         * Explicit diagnostics: instruments whose TradeLocker
+         * specification was invalid (e.g. missing/zero lotSize)
+         * were rejected and NOT imported with a fabricated
+         * contract size.
+         */
+        rejectedInstrumentSpecs: invalidInstrumentSpecs,
+        instrumentSpecsStored: storedSpecs.size,
+
         message:
-          'TradeLocker trades synced successfully.'
+          invalidInstrumentSpecs.length > 0
+            ? 'TradeLocker trades synced, but ' +
+              invalidInstrumentSpecs.length +
+              ' position(s) were skipped due to invalid ' +
+              'instrument specifications.'
+            : 'TradeLocker trades synced successfully.'
       });
 
     } catch (error) {
