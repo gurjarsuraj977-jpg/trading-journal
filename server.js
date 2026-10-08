@@ -18,6 +18,7 @@ const {createSimulationRouter}=require("./routes/simulation-routes");
 const {createAnalyticsRouter}=require("./routes/analytics-routes");
 const {createCalendarRouter}=require("./routes/calendar-routes");
 const {createPremiumRouter}=require("./routes/premium-routes");
+const {createBehaviorRouter}=require("./routes/behavior-routes");
 const {createReplayRouter}=require("./routes/replay-routes");
 const {createAiCoachRouter}=require("./routes/ai-coach-routes");
 const {createImportRouter}=require("./routes/import-routes");
@@ -887,6 +888,7 @@ app.delete("/api/trades/:id",auth,async(req,res)=>{try{let r=await db("DELETE FR
 app.use("/api/analytics",createAnalyticsRouter({db,auth}));
 app.use("/api/calendar",createCalendarRouter({db,auth}));
 app.use("/api/premium",createPremiumRouter({db,auth,fields}));
+app.use("/api/behavior",createBehaviorRouter({db,auth}));
 
 // V5/V6/V7 premium execution, playbooks, simulation and AI routes
 app.use("/api/playbooks",createPlaybookRouter({db,auth,n}));

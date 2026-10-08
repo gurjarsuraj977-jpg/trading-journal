@@ -34,9 +34,13 @@ async function buildTradeFilters(db, opts) {
   let source = String(opts.source || "all").toLowerCase();
   if (!VALID_SOURCES.has(source)) source = "all";
 
-  // $1 = userId, $2 = tz (always present for timezone() predicates)
+  // $1 = userId, $2 = tz (always present for timezone() predicates).
+  // $2 is intentionally always bound: loadBreakdowns, active-day queries,
+  // and date filters all hard-reference $2. When from/to are absent the
+  // tautology below keeps placeholder/param counts aligned and gives
+  // PostgreSQL an explicit text type (avoids 08P01 / 42P18).
   const params = [userId, tz];
-  const clauses = ["user_id = $1"];
+  const clauses = ["user_id = $1", "$2::text IS NOT NULL"];
 
   let resolvedAccount = null;
   if (opts.accountId != null && Number(opts.accountId) > 0) {
