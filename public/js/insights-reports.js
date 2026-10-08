@@ -26,9 +26,12 @@ function insightRow(x){
 }
 
 function premiumQuery(){
+  /* tz aligns Reports with Unified Metrics local-calendar contract */
   return new URLSearchParams({
     account:state.account||'',
-    range:state.range||'year'
+    range:state.range||'year',
+    tz:typeof TZ==='function'?TZ():'UTC',
+    ...(typeof dateRange==='function'?dateRange():{})
   }).toString();
 }
 

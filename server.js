@@ -27,6 +27,7 @@ const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
 const {createMT5Router}=require("./mt5/mt5-routes");
 const {createAdminRouter}=require("./routes/admin-routes");
 const {tradeMatchClauseNoAlias,resolveAccount}=require("./utils/account-match");
+const {appendJournalDateFilters}=require("./metrics/query-builder");
 /*
  * Batch 1B — JWT secret hardening.
  * Production must never silently sign tokens with the public
@@ -97,8 +98,15 @@ app.get("/api/trades",auth,async(req,res)=>{try{
   if(req.query.strategy){v.push(String(req.query.strategy).trim());w.push(`strategy=$${v.length}`)}
   if(req.query.session){v.push(String(req.query.session).trim());w.push(`session=$${v.length}`)}
   if(req.query.playbookId && Number.isInteger(Number(req.query.playbookId))){v.push(Number(req.query.playbookId));w.push(`playbook_id=$${v.length}`)}
-  if(req.query.from && /^\d{4}-\d{2}-\d{2}$/.test(req.query.from)){v.push(req.query.from);w.push(`trade_date >= $${v.length}::date::timestamp`)}
-  if(req.query.to && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to)){v.push(req.query.to);w.push(`trade_date < ($${v.length}::date + INTERVAL '1 day')`)}
+  /*
+   * Journal from/to aligned with Unified Metrics: inclusive local calendar
+   * dates in tz (default UTC). Callers without tz keep UTC semantics.
+   */
+  appendJournalDateFilters(v, w, {
+    from: req.query.from,
+    to: req.query.to,
+    tz: req.query.tz || "UTC",
+  });
   if(req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)){
     const tz=String(req.query.tz||"UTC");v.push(tz,req.query.date);
     w.push(`(trade_date AT TIME ZONE $${v.length-1})::date=$${v.length}::date`);

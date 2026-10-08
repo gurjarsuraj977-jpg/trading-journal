@@ -1,5 +1,7 @@
 const express=require("express");
 const {tradeMatchClause}=require("../utils/account-match");
+const {getMetrics}=require("../metrics/service");
+const {winRate,expectancy,profitFactor}=require("../metrics/formulas");
 
 /*
  * GhostTrader Accounts V2 — "Account Command Center".
@@ -44,6 +46,8 @@ function createAccountRouter({db,auth,n}){
           COALESCE(SUM(t.profit_loss),0)::numeric AS pnl,
           COUNT(t.id)::int AS trade_count,
           COUNT(t.id) FILTER (WHERE t.profit_loss>0)::int AS wins,
+          COUNT(t.id) FILTER (WHERE t.profit_loss<0)::int AS losses,
+          COUNT(t.id) FILTER (WHERE t.profit_loss=0 OR t.profit_loss IS NULL)::int AS breakeven,
           COALESCE(AVG(t.risk_percent),0)::numeric AS avg_risk_percent,
           MAX(t.trade_date) AS last_trade_date
         FROM accounts a
@@ -63,7 +67,10 @@ function createAccountRouter({db,auth,n}){
         pnl:Number(a.pnl||0),
         equity:Number(a.starting_balance||0)+Number(a.pnl||0),
         trade_count:Number(a.trade_count||0),
-        win_rate:Number(a.trade_count||0)?Number(a.wins||0)/Number(a.trade_count||0)*100:0,
+        wins:Number(a.wins||0),
+        losses:Number(a.losses||0),
+        breakeven:Number(a.breakeven||0),
+        win_rate:winRate(Number(a.wins||0),Number(a.losses||0)),
         avg_risk_percent:Number(a.avg_risk_percent||0)
       }));
 
@@ -175,9 +182,12 @@ function createAccountRouter({db,auth,n}){
       const s=summaryR.rows[0];
       const t=Number(s.total),wins=Number(s.wins),losses=Number(s.losses);
       const gp=Number(s.gp),gl=Number(s.gl),aw=Number(s.aw),al=Math.abs(Number(s.al));
-      const profitFactorInfinite=gl===0&&gp>0;
-      const profitFactor=gl?gp/gl:0;
-      const expectancy=t?wins/t*aw-losses/t*al:0;
+      const breakeven=Math.max(0,t-wins-losses);
+      const pf=profitFactor(gp,gl);
+      const profitFactorInfinite=pf.profitFactorInfinite;
+      const profitFactorVal=pf.profitFactorInfinite?0:(pf.profitFactor||0);
+      const expectancyVal=expectancy(wins,losses,aw,al);
+      const winRateVal=winRate(wins,losses);
 
       let eq=0,peak=0,dd=0,ws=0,ls=0,bw=0,bl=0;
       const equityCurve=curveR.rows.map(x=>{
@@ -202,14 +212,14 @@ function createAccountRouter({db,auth,n}){
           starting_balance:Number(account.starting_balance||0)
         },
         performance:{
-          total:t,wins,losses,
+          total:t,wins,losses,breakeven,
           pnl:Number(s.pnl),
           startingBalance:Number(account.starting_balance||0),
           currentEquity:Number(account.starting_balance||0)+Number(s.pnl),
-          winRate:t?wins/t*100:0,
-          profitFactor,profitFactorInfinite,
+          winRate:winRateVal,
+          profitFactor:profitFactorVal,profitFactorInfinite,
           avgWin:aw,avgLoss:al,avgR:Number(s.avgr),
-          expectancy,
+          expectancy:expectancyVal,
           maxDrawdown:Math.abs(dd),
           bestWinStreak:bw,bestLossStreak:bl,
           bestTrade:Number(s.best_trade),

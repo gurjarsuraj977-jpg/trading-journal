@@ -1,12 +1,77 @@
-const express=require("express");
+const express = require("express");
+const { buildTradeFilters } = require("../metrics/query-builder");
 
-function createSimulationRouter({db,auth,n}){
-  const router=express.Router();
+/**
+ * Strategy Simulator — response-only hypotheticals from live journal MFE/MAE.
+ * Does NOT write results into trades. Does NOT affect live metrics.
+ */
+function createSimulationRouter({ db, auth, n }) {
+  const router = express.Router();
 
-  router.post("/api/simulate",auth,async(req,res)=>{try{let w=["user_id=$1"],v=[req.user.id];if(req.body.account){v.push(String(req.body.account));w.push(`account=$${v.length}`)}if(req.body.symbol){v.push(String(req.body.symbol).trim().toUpperCase());w.push(`symbol=$${v.length}`)}const rows=(await db(`SELECT actual_r,mfe_r,mae_r,profit_loss,risk_amount FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date`,v)).rows;const target=n(req.body.targetR,2),stop=-Math.abs(n(req.body.stopR,1));let pnlR=0,wins=0,losses=0,usable=0;for(const x of rows){const mfe=n(x.mfe_r),mae=n(x.mae_r);if(!mfe&&!mae)continue;usable++;let rr=n(x.actual_r);if(mfe>=target)rr=target;else if(mae<=stop)rr=stop;wins+=rr>0?1:0;losses+=rr<0?1:0;pnlR+=rr}res.json({trades:rows.length,usable,wins,losses,targetR:target,stopR:stop,simulatedR:pnlR,winRate:usable?wins/usable*100:0,avgR:usable?pnlR/usable:0})}catch(e){console.error(e);res.status(500).json({error:"Simulation failed."})}});
-  router.post("/api/backtests",auth,async(req,res)=>{try{const r=await db("INSERT INTO backtests(user_id,name,symbol,target_r,stop_r) VALUES($1,$2,$3,$4,$5) RETURNING *",[req.user.id,String(req.body.name||"Scenario"),String(req.body.symbol||""),n(req.body.targetR,2),Math.abs(n(req.body.stopR,1))]);res.status(201).json({backtest:r.rows[0]})}catch(e){res.status(500).json({error:"Could not save simulation."})}});
+  router.post("/api/simulate", auth, async (req, res) => {
+    try {
+      const accountName = String(req.body.account || "").trim();
+      const filter = await buildTradeFilters(db, {
+        userId: req.user.id,
+        accountName: accountName || undefined,
+        tz: "UTC",
+      });
+
+      const clauses = [filter.where];
+      const params = [...filter.params];
+      if (req.body.symbol) {
+        params.push(String(req.body.symbol).trim().toUpperCase());
+        clauses.push(`symbol = $${params.length}`);
+      }
+
+      const rows = (
+        await db(
+          `SELECT actual_r, mfe_r, mae_r, profit_loss, risk_amount
+           FROM trades WHERE ${clauses.join(" AND ")}
+           ORDER BY trade_date`,
+          params
+        )
+      ).rows;
+
+      const target = n(req.body.targetR, 2);
+      const stop = -Math.abs(n(req.body.stopR, 1));
+      let pnlR = 0;
+      let wins = 0;
+      let losses = 0;
+      let usable = 0;
+
+      for (const x of rows) {
+        const mfe = n(x.mfe_r);
+        const mae = n(x.mae_r);
+        if (!mfe && !mae) continue;
+        usable++;
+        let rr = n(x.actual_r);
+        if (mfe >= target) rr = target;
+        else if (mae <= stop) rr = stop;
+        wins += rr > 0 ? 1 : 0;
+        losses += rr < 0 ? 1 : 0;
+        pnlR += rr;
+      }
+
+      res.json({
+        trades: rows.length,
+        usable,
+        wins,
+        losses,
+        targetR: target,
+        stopR: stop,
+        simulatedR: pnlR,
+        winRate: usable ? (wins / usable) * 100 : 0,
+        avgR: usable ? pnlR / usable : 0,
+        note: "Simulation is response-only and does not alter live journal metrics.",
+      });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Simulation failed." });
+    }
+  });
 
   return router;
 }
 
-module.exports={createSimulationRouter};
+module.exports = { createSimulationRouter };

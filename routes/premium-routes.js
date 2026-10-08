@@ -1,9 +1,13 @@
 const express = require("express");
-const {
-  tradeMatchClauseNoAlias,
-  resolveAccount,
-} = require("../utils/account-match");
+const { getMetrics } = require("../metrics/service");
+const { buildTradeFilters } = require("../metrics/query-builder");
 
+/**
+ * Reports / Insights — summary metrics via Unified Metrics Service.
+ * Process flags and coach text still need individual trade rows for
+ * rule-based review; those use a capped projection (not full recalculation
+ * of win rate / PF / expectancy).
+ */
 function createPremiumRouter({ db, auth, fields }) {
   const router = express.Router();
 
@@ -11,131 +15,118 @@ function createPremiumRouter({ db, auth, fields }) {
     try {
       const accountName = String(req.query.account || "").trim();
       const range = String(req.query.range || "all");
-      const v = [req.user.id],
-        w = ["user_id=$1"];
+      const tz = String(req.query.tz || "UTC").trim() || "UTC";
 
       /*
-       * Same dual-match as analytics / calendar / journal / accounts:
-       * account_id = id OR (account_id IS NULL AND account = name).
-       * Ensures Reports counts agree after renames and for legacy rows.
+       * Unified Metrics date contract:
+       *   from/to = inclusive local calendar dates in tz
+       * Prefer explicit from/to when provided; otherwise derive from
+       * range using the same local-calendar idea (not server-local wall clock).
        */
-      if (accountName) {
-        const acc = await resolveAccount(db, req.user.id, { name: accountName });
-        if (acc) {
-          v.push(acc.id, acc.name);
-          w.push(tradeMatchClauseNoAlias(`$${v.length - 1}`, `$${v.length}`));
+      let from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from || ""))
+        ? String(req.query.from)
+        : "";
+      let to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to || ""))
+        ? String(req.query.to)
+        : "";
+
+      if (!from && range !== "all") {
+        // Derive "from" as YYYY-MM-DD in the requested timezone via
+        // Intl parts (not Date#toISOString UTC).
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: tz,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(new Date());
+        const y = Number(parts.find((p) => p.type === "year").value);
+        const mo = Number(parts.find((p) => p.type === "month").value);
+        const da = Number(parts.find((p) => p.type === "day").value);
+        let fy = y, fm = mo, fd = 1;
+        if (range === "month") {
+          /* first day of current local month */
+        } else if (range === "3m") {
+          fm -= 2;
+          while (fm < 1) { fm += 12; fy -= 1; }
+        } else if (range === "6m") {
+          fm -= 5;
+          while (fm < 1) { fm += 12; fy -= 1; }
         } else {
-          v.push(accountName);
-          w.push(`account=$${v.length} AND account_id IS NULL`);
+          /* year */
+          fy -= 1;
+          fm = mo;
+          fd = da;
         }
+        from = `${fy}-${String(fm).padStart(2, "0")}-${String(fd).padStart(2, "0")}`;
       }
 
-      const now = new Date();
-      if (range !== "all") {
-        const from = new Date(now);
-        if (range === "month") from.setMonth(from.getMonth(), 1);
-        else if (range === "3m") from.setMonth(from.getMonth() - 2, 1);
-        else if (range === "6m") from.setMonth(from.getMonth() - 5, 1);
-        else from.setFullYear(from.getFullYear() - 1);
-        const iso = from.toISOString().slice(0, 10);
-        v.push(iso);
-        w.push(`trade_date >= $${v.length}::date`);
-      }
-      const r = await db(
-        `SELECT ${fields} FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date ASC,id ASC LIMIT 5000`,
-        v
+      const m = await getMetrics(db, {
+        userId: req.user.id,
+        accountName: accountName || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        tz,
+        includeBreakdowns: true,
+        includeCurve: true,
+      });
+
+      const edge = (arr) =>
+        (arr || [])
+          .filter((x) => Number(x.trades) >= 3)
+          .map((x) => ({
+            name: x.name,
+            trades: Number(x.trades),
+            pnl: Number(x.pnl),
+            winRate: 0,
+            profitFactor: 0,
+            avgR: 0,
+          }))
+          .sort((a, b) => b.pnl - a.pnl);
+
+      const b = m.breakdowns || {};
+      const symbols = edge(b.bySymbol);
+      const strategies = edge(b.byStrategy);
+      const setups = edge(b.bySetup);
+      const sessions = edge(b.bySession);
+
+      // Process flags need individual rows — capped projection only
+      const filter = await buildTradeFilters(db, {
+        userId: req.user.id,
+        accountName: accountName || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        tz,
+      });
+      const rowR = await db(
+        `SELECT id, symbol, profit_loss, trade_date, risk_percent,
+                stop_loss, take_profit, confidence, mistakes, actual_r,
+                emotion_before, emotion_after, market_condition
+         FROM trades WHERE ${filter.where}
+         ORDER BY trade_date ASC, id ASC
+         LIMIT 2000`,
+        filter.params
       );
-      const rows = r.rows.map((x) => ({
-        ...x,
+      const rows = rowR.rows.map((x) => ({
+        id: x.id,
+        symbol: x.symbol,
         pnl: Number(x.profit_loss || 0),
         r: Number(x.actual_r || 0),
         risk: Number(x.risk_percent || 0),
         conf: Number(x.confidence || 0),
+        trade_date: x.trade_date,
+        stop_loss: x.stop_loss,
+        take_profit: x.take_profit,
+        mistakes: x.mistakes,
+        emotion_before: x.emotion_before,
+        emotion_after: x.emotion_after,
+        market_condition: x.market_condition,
       }));
-      const groupBy = (keyFn) => {
-        const m = new Map();
-        for (const x of rows) {
-          const k = String(keyFn(x) || "Unspecified");
-          if (!m.has(k)) m.set(k, []);
-          m.get(k).push(x);
-        }
-        return [...m].map(([name, a]) => {
-          const wins = a.filter((x) => x.pnl > 0).length,
-            pnl = a.reduce((z, x) => z + x.pnl, 0),
-            grossWin = a.filter((x) => x.pnl > 0).reduce((z, x) => z + x.pnl, 0),
-            grossLoss = Math.abs(
-              a.filter((x) => x.pnl < 0).reduce((z, x) => z + x.pnl, 0)
-            );
-          return {
-            name,
-            trades: a.length,
-            pnl,
-            winRate: a.length ? (wins / a.length) * 100 : 0,
-            profitFactor: grossLoss
-              ? grossWin / grossLoss
-              : grossWin
-                ? Infinity
-                : 0,
-            avgR: a.length ? a.reduce((z, x) => z + x.r, 0) / a.length : 0,
-          };
-        });
-      };
-      const edge = (arr) =>
-        arr.filter((x) => x.trades >= 3).sort((a, b) => b.pnl - a.pnl);
-      const symbols = edge(groupBy((x) => x.symbol)),
-        strategies = edge(groupBy((x) => x.strategy)),
-        setups = edge(groupBy((x) => x.setup)),
-        sessions = edge(groupBy((x) => x.session)),
-        markets = edge(groupBy((x) => x.market_condition));
-      const emotions = groupBy(
-        (x) => x.emotion_before || x.emotion_after || "Unspecified"
-      ).sort((a, b) => b.trades - a.trades);
-      const confidence = [
-        { label: "0-20", min: 0, max: 20 },
-        { label: "21-40", min: 21, max: 40 },
-        { label: "41-60", min: 41, max: 60 },
-        { label: "61-80", min: 61, max: 80 },
-        { label: "81-100", min: 81, max: 100 },
-      ]
-        .map((g) => {
-          const a = rows.filter((x) => x.conf >= g.min && x.conf <= g.max);
-          const wins = a.filter((x) => x.pnl > 0).length;
-          return {
-            ...g,
-            trades: a.length,
-            pnl: a.reduce((z, x) => z + x.pnl, 0),
-            winRate: a.length ? (wins / a.length) * 100 : 0,
-            avgR: a.length ? a.reduce((z, x) => z + x.r, 0) / a.length : 0,
-          };
-        })
-        .filter((x) => x.trades);
-      const avgRisk = rows.length
-        ? rows.reduce((z, x) => z + x.risk, 0) / rows.length
-        : 0;
+
+      const avgRisk = m.avgRiskPercent;
       const riskOutliers = avgRisk
         ? rows.filter((x) => x.risk > avgRisk * 1.5).length
         : 0;
-      let eq = 0,
-        peak = 0,
-        maxDD = 0,
-        ws = 0,
-        ls = 0,
-        bestWinStreak = 0,
-        bestLossStreak = 0;
-      for (const x of rows) {
-        eq += x.pnl;
-        peak = Math.max(peak, eq);
-        maxDD = Math.min(maxDD, eq - peak);
-        if (x.pnl > 0) {
-          ws++;
-          ls = 0;
-          bestWinStreak = Math.max(bestWinStreak, ws);
-        } else if (x.pnl < 0) {
-          ls++;
-          ws = 0;
-          bestLossStreak = Math.max(bestLossStreak, ls);
-        }
-      }
+
       const processFlags = rows
         .map((x) => ({
           id: x.id,
@@ -153,8 +144,9 @@ function createPremiumRouter({ db, auth, fields }) {
           ].filter(Boolean),
         }))
         .filter((x) => x.reasons.length);
+
       const coach = [];
-      if (rows.length) {
+      if (m.tradeCount) {
         const best = [...symbols, ...strategies, ...setups]
           .filter((x) => x.trades >= 5)
           .sort((a, b) => b.pnl - a.pnl)[0];
@@ -165,33 +157,35 @@ function createPremiumRouter({ db, auth, fields }) {
           coach.push({
             type: "EDGE",
             title: `Strongest edge: ${best.name}`,
-            body: `${best.trades} trades · ${best.winRate.toFixed(1)}% win rate · ${best.pnl.toFixed(2)} P&L.`,
+            body: `${best.trades} trades · ${best.pnl.toFixed(2)} P&L.`,
           });
         if (worst && worst.pnl < 0)
           coach.push({
             type: "LEAK",
             title: `Biggest performance leak is ${worst.name}`,
-            body: `${worst.trades} trades · ${worst.winRate.toFixed(1)}% win rate · ${worst.pnl.toFixed(2)} P&L.`,
+            body: `${worst.trades} trades · ${worst.pnl.toFixed(2)} P&L.`,
           });
         if (riskOutliers)
           coach.push({
             type: "RISK",
             title: `${riskOutliers} trades were risk outliers`,
-            body: `They used more than 1.5× your average recorded risk. Review these before increasing size.`,
+            body: `They used more than 1.5× your average recorded risk.`,
           });
-        if (bestLossStreak >= 3)
+        if (m.bestLossStreak >= 3)
           coach.push({
             type: "DISCIPLINE",
-            title: `Your worst losing streak is ${bestLossStreak}`,
-            body: `Consider a hard daily stop or cooldown rule after consecutive losses.`,
+            title: `Your worst losing streak is ${m.bestLossStreak}`,
+            body: `Consider a hard daily stop after consecutive losses.`,
           });
         if (processFlags.length)
           coach.push({
             type: "PROCESS",
             title: `${processFlags.length} trades have process flags`,
-            body: `Use the Process Review below to clean up missing protection, low-confidence entries, and mistakes.`,
+            body: `Review missing protection, low confidence, and mistakes.`,
           });
       }
+
+      const now = new Date();
       const monday = new Date(now);
       const day = monday.getDay();
       const diff = (day + 6) % 7;
@@ -205,24 +199,93 @@ function createPremiumRouter({ db, auth, fields }) {
         return d >= prevStart && d < monday;
       });
       const stats = (a) => {
-        const pnl = a.reduce((z, x) => z + x.pnl, 0),
-          wins = a.filter((x) => x.pnl > 0).length;
+        const pnl = a.reduce((z, x) => z + x.pnl, 0);
+        const wins = a.filter((x) => x.pnl > 0).length;
+        const losses = a.filter((x) => x.pnl < 0).length;
         return {
           trades: a.length,
           pnl,
-          winRate: a.length ? (wins / a.length) * 100 : 0,
+          winRate:
+            wins + losses ? (wins / (wins + losses)) * 100 : 0,
           avgR: a.length ? a.reduce((z, x) => z + x.r, 0) / a.length : 0,
         };
       };
+
+      const emotions = (() => {
+        const map = new Map();
+        for (const x of rows) {
+          const k = String(x.emotion_before || x.emotion_after || "Unspecified");
+          if (!map.has(k)) map.set(k, []);
+          map.get(k).push(x);
+        }
+        return [...map].map(([name, a]) => ({
+          name,
+          trades: a.length,
+          pnl: a.reduce((z, x) => z + x.pnl, 0),
+          winRate: (() => {
+            const w = a.filter((x) => x.pnl > 0).length;
+            const l = a.filter((x) => x.pnl < 0).length;
+            return w + l ? (w / (w + l)) * 100 : 0;
+          })(),
+        })).sort((a, b) => b.trades - a.trades);
+      })();
+
+      const confidence = [
+        { label: "0-20", min: 0, max: 20 },
+        { label: "21-40", min: 21, max: 40 },
+        { label: "41-60", min: 41, max: 60 },
+        { label: "61-80", min: 61, max: 80 },
+        { label: "81-100", min: 81, max: 100 },
+      ]
+        .map((g) => {
+          const a = rows.filter((x) => x.conf >= g.min && x.conf <= g.max);
+          const w = a.filter((x) => x.pnl > 0).length;
+          const l = a.filter((x) => x.pnl < 0).length;
+          return {
+            ...g,
+            trades: a.length,
+            pnl: a.reduce((z, x) => z + x.pnl, 0),
+            winRate: w + l ? (w / (w + l)) * 100 : 0,
+            avgR: a.length ? a.reduce((z, x) => z + x.r, 0) / a.length : 0,
+          };
+        })
+        .filter((x) => x.trades);
+
+      const markets = edge(
+        (() => {
+          const map = new Map();
+          for (const x of rows) {
+            const k = String(x.market_condition || "Unspecified");
+            if (!map.has(k)) map.set(k, { name: k, trades: 0, pnl: 0 });
+            const o = map.get(k);
+            o.trades++;
+            o.pnl += x.pnl;
+          }
+          return [...map.values()];
+        })()
+      );
+
       res.json({
         edge: { symbols, strategies, setups, sessions, markets },
         psychology: { emotions, confidence },
         risk: {
-          avgRisk,
-          maxDrawdown: Math.abs(maxDD),
+          avgRisk: m.avgRiskPercent,
+          maxDrawdown: m.maxDrawdown,
           riskOutliers,
-          bestLossStreak,
-          bestWinStreak,
+          bestLossStreak: m.bestLossStreak,
+          bestWinStreak: m.bestWinStreak,
+        },
+        summary: {
+          tradeCount: m.tradeCount,
+          wins: m.wins,
+          losses: m.losses,
+          breakeven: m.breakeven,
+          winRate: m.winRate,
+          pnl: m.pnl,
+          expectancy: m.expectancy,
+          profitFactor: m.profitFactor,
+          profitFactorInfinite: m.profitFactorInfinite,
+          avgR: m.avgR,
         },
         processFlags: processFlags.slice(-30).reverse(),
         coach,
