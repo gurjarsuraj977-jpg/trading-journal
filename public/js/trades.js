@@ -125,6 +125,12 @@ async function trades(){
   if($("#tradeAccount").value)
     q.set('account',$("#tradeAccount").value);
 
+  /* Calendar day drill-down: keep local calendar date + tz */
+  if(state.journalDate){
+    q.set('date',state.journalDate);
+    q.set('tz',typeof TZ==='function'?TZ():'UTC');
+  }
+
   const d=await api('/api/trades?'+q);
 
   state.trades=d.trades||[];

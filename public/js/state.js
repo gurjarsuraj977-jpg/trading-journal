@@ -6,7 +6,11 @@ const state={
   edit:null,
   range:"year",
   account:"",
-  lastAnalytics:null
+  lastAnalytics:null,
+  /* Calendar → Journal day drill-down. When set, trades() requests
+   * /api/trades?date=&tz= and page('trades') must not clear it until
+   * the user opens Journal from nav or changes day intentionally. */
+  journalDate:null
 };
 
 /*

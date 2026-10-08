@@ -76,24 +76,25 @@ async function calendar(){
   $("#gridcal").innerHTML=h;
 
   $$('#gridcal .day[data-day]').forEach(el=>
-    el.onclick=async()=>{
-      const d=await api(
-        '/api/trades?date='+
-        el.dataset.day+
-        '&tz='+
-        encodeURIComponent(TZ())
-      );
-
-      state.trades=d.trades||[];
+    el.onclick=()=>{
+      /* Preserve selected local calendar day for Journal load.
+       * page('trades') → trades() issues ONE filtered request.
+       * Do not pre-fetch here: that caused a second unfiltered
+       * /api/trades that overwrote the day result. */
+      state.journalDate=el.dataset.day;
 
       $("#fs").value='';
       $("#fd").value='';
       $("#fr").value='';
 
-      page('trades');
+      /* Keep account filter aligned with Calendar selector when set */
+      const calAccountEl=$("#calAccount");
+      const tradeAccountEl=$("#tradeAccount");
+      if(calAccountEl&&tradeAccountEl&&calAccountEl.value){
+        tradeAccountEl.value=calAccountEl.value;
+      }
 
-      $("#tradeTable").innerHTML=
-        table(state.trades);
+      page('trades');
     }
   );
 }

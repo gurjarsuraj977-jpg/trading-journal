@@ -74,7 +74,11 @@ if(p==='accounts'){
 }
 
 $$('nav button[data-p]').forEach(b=>
-  b.onclick=()=>page(b.dataset.p)
+  b.onclick=()=>{
+    /* Direct Journal nav clears Calendar day filter */
+    if(b.dataset.p==='trades')state.journalDate=null;
+    page(b.dataset.p);
+  }
 );
 
 $("#openInsights").onclick=()=>
@@ -760,6 +764,7 @@ window.addEventListener('resize',()=>{
   $$('.mnav-btn[data-p]').forEach(b=>{
     b.addEventListener('click',()=>{
       closeMobileMore();
+      if(b.dataset.p==='trades')state.journalDate=null;
       page(b.dataset.p);
     });
   });
@@ -777,6 +782,7 @@ window.addEventListener('resize',()=>{
   $$('.mobile-more-item[data-p]').forEach(b=>{
     b.addEventListener('click',()=>{
       closeMobileMore();
+      if(b.dataset.p==='trades')state.journalDate=null;
       page(b.dataset.p);
     });
   });
