@@ -69,16 +69,104 @@ function confidenceLabel(level){
 }
 
 function fmtNum(n,digits){
+  if(n===null||n===undefined||n==='')return '—';
   const x=Number(n);
   if(!Number.isFinite(x))return '—';
   return x.toFixed(digits);
 }
 
 function fmtSignedR(n){
+  if(n===null||n===undefined||n==='')return '—';
   const x=Number(n);
   if(!Number.isFinite(x))return '—';
   const sign=x>0?'+':'';
   return sign+x.toFixed(2)+'R';
+}
+
+function fmtPct(n,digits){
+  if(n===null||n===undefined||n==='')return '—';
+  const x=Number(n);
+  if(!Number.isFinite(x))return '—';
+  return x.toFixed(digits==null?1:digits)+'%';
+}
+
+function evidenceRank(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='strong')return 3;
+  if(s==='meaningful')return 2;
+  if(s==='emerging')return 1;
+  return 0;
+}
+
+function isActionableEvidence(ev){
+  if(!ev)return false;
+  const s=String(ev.status||'').toLowerCase();
+  return s==='emerging'||s==='meaningful'||s==='strong';
+}
+
+function dimLabel(dim){
+  const map={
+    session:'Session',
+    strategy:'Strategy',
+    setup:'Setup',
+    market_condition:'Market Condition',
+    symbol:'Symbol',
+    direction:'Direction',
+    source:'Source',
+    playbook:'Playbook',
+    confidence:'Confidence',
+    rule_score:'Rule Score',
+    emotion_before:'Emotion (before)',
+    emotion_after:'Emotion (after)',
+    mistake:'Mistake',
+    risk:'Risk',
+    exit_efficiency:'Exit Efficiency',
+    streaks:'Streaks'
+  };
+  return map[dim]||(dim?String(dim).replace(/_/g,' '):'—');
+}
+
+function patternTypeLabel(type){
+  const map={
+    segment_performance:'Segment',
+    confidence_calibration:'Confidence',
+    emotion_segment:'Emotion',
+    rule_score:'Rule Score',
+    mistake_impact:'Mistake Impact',
+    risk_consistency:'Risk Consistency',
+    exit_efficiency:'Exit Efficiency',
+    streaks:'Streaks'
+  };
+  return map[type]||(type?String(type).replace(/_/g,' '):'Pattern');
+}
+
+function patternGroup(type){
+  if(type==='confidence_calibration'||type==='emotion_segment')return 'Psychology';
+  if(type==='rule_score'||type==='mistake_impact')return 'Process';
+  if(type==='risk_consistency'||type==='exit_efficiency'||type==='streaks')return 'Risk & Execution';
+  if(type==='segment_performance')return 'Segments';
+  return 'Other';
+}
+
+/* Evidence sort: strong > meaningful > emerging; then larger sample */
+function sortByEvidence(a,b){
+  const ra=evidenceRank(a.evidence&&a.evidence.status);
+  const rb=evidenceRank(b.evidence&&b.evidence.status);
+  if(rb!==ra)return rb-ra;
+  return(Number(b.sampleSize)||0)-(Number(a.sampleSize)||0);
+}
+
+/* Drivers: actionable evidence first, then |Δ avgR|, then sample */
+function sortDrivers(a,b){
+  const ra=evidenceRank(a.evidence&&a.evidence.status);
+  const rb=evidenceRank(b.evidence&&b.evidence.status);
+  if(rb!==ra)return rb-ra;
+  const da=Math.abs(Number(a.difference&&a.difference.averageR));
+  const db=Math.abs(Number(b.difference&&b.difference.averageR));
+  const aOk=Number.isFinite(da)?da:0;
+  const bOk=Number.isFinite(db)?db:0;
+  if(bOk!==aOk)return bOk-aOk;
+  return(Number(b.sampleSize)||0)-(Number(a.sampleSize)||0);
 }
 
 function baselineMetric(label,value,cls){
@@ -247,9 +335,255 @@ async function loadTraderBaseline(){
   }
 }
 
+/* ============================================================
+   Behavior UI Batch 2 — Signals + Patterns
+   ============================================================ */
+
+function cardMetric(label,value,cls){
+  return`
+    <div class="bcard-metric">
+      <span>${E(label)}</span>
+      <b class="${cls||''}">${value}</b>
+    </div>
+  `;
+}
+
+function evidenceBadges(ev){
+  if(!ev)return'';
+  const status=String(ev.status||'');
+  const conf=String(ev.confidenceLevel||'');
+  return`
+    <div class="baseline-badges">
+      <span class="evidence-badge evidence-${E(status)}">${E(evidenceLabel(status))}</span>
+      <span class="confidence-badge">${E(confidenceLabel(conf))}</span>
+    </div>
+  `;
+}
+
+function deviationWord(diff){
+  const x=Number(diff);
+  if(!Number.isFinite(x))return'';
+  if(x>0)return'Above baseline';
+  if(x<0)return'Below baseline';
+  return'At baseline';
+}
+
+/**
+ * Filter patterns to actionable evidence only; sort strong→meaningful→emerging.
+ * Backend already skips insufficient for segment-derived patterns, but we
+ * defend in the UI as well.
+ */
+function preparePatterns(list){
+  return(list||[])
+    .filter(p=>p&&isActionableEvidence(p.evidence))
+    .slice()
+    .sort(sortByEvidence);
+}
+
+/**
+ * Group prepared patterns into Psychology / Process / Risk & Execution / Segments.
+ * Omits empty groups.
+ */
+function groupPatterns(patterns){
+  const order=['Psychology','Process','Risk & Execution','Segments','Other'];
+  const map={};
+  for(const p of patterns){
+    const g=patternGroup(p.type);
+    if(!map[g])map[g]=[];
+    map[g].push(p);
+  }
+  return order
+    .filter(g=>map[g]&&map[g].length)
+    .map(g=>({group:g,items:map[g]}));
+}
+
+/**
+ * Segment signals usable as performance drivers.
+ * Excludes Unspecified and insufficient evidence.
+ */
+function prepareDrivers(signals){
+  const segs=(signals&&signals.segments)||[];
+  return segs
+    .filter(s=>{
+      if(!s||!isActionableEvidence(s.evidence))return false;
+      const name=String(s.segment||'');
+      if(!name||name==='Unspecified')return false;
+      return true;
+    })
+    .slice()
+    .sort(sortDrivers);
+}
+
+function renderPatternCard(p){
+  const n=Number(p.sampleSize)||0;
+  const status=String((p.evidence&&p.evidence.status)||'');
+  const type=patternTypeLabel(p.type);
+  const seg=p.segment!=null&&p.segment!==''?String(p.segment):null;
+  const dim=p.dimension?dimLabel(p.dimension):'';
+  const title=seg||dim||type;
+  const sub=[type,dim&&dim!==title?dim:null].filter(Boolean).join(' · ');
+
+  let metrics='';
+  if(p.type==='streaks'){
+    metrics=
+      cardMetric('Win streak',String(p.longestWinStreak!=null?p.longestWinStreak:'—'))+
+      cardMetric('Loss streak',String(p.longestLossStreak!=null?p.longestLossStreak:'—'));
+  }else if(p.type==='exit_efficiency'){
+    const cap=Number(p.difference);
+    metrics=
+      cardMetric('Capture ratio',Number.isFinite(cap)?fmtNum(cap,2):'—',Number.isFinite(cap)?C(cap-0.5):'');
+  }else if(p.type==='risk_consistency'){
+    const dev=Number(p.difference);
+    metrics=
+      cardMetric('Risk Δ',Number.isFinite(dev)?fmtNum(dev,2)+' pp':'—',Number.isFinite(dev)?C(-Math.abs(dev)):'')+
+      (Number.isFinite(dev)?`<div class="bcard-note">${E(deviationWord(dev))}</div>`:'');
+  }else{
+    const diff=Number(p.difference);
+    metrics=
+      cardMetric('Δ Average R',fmtSignedR(diff),Number.isFinite(diff)?C(diff):'')+
+      (Number.isFinite(diff)?`<div class="bcard-note">${E(deviationWord(diff))}</div>`:'');
+  }
+
+  return`
+    <div class="bcard">
+      <div class="bcard-top">
+        <div>
+          <span class="bcard-type">${E(type)}</span>
+          <h3 class="bcard-title">${E(title)}</h3>
+          ${sub&&sub!==title?`<p class="bcard-sub">${E(sub)}</p>`:''}
+          <p class="bcard-sample">${n} trade${n===1?'':'s'} · ${E(evidenceLabel(status))} pattern</p>
+        </div>
+        ${evidenceBadges(p.evidence)}
+      </div>
+      <div class="bcard-metrics">${metrics}</div>
+    </div>
+  `;
+}
+
+function renderDriverCard(s){
+  const n=Number(s.sampleSize)||0;
+  const status=String((s.evidence&&s.evidence.status)||'');
+  const dim=dimLabel(s.dimension);
+  const seg=String(s.segment||'');
+  const avgR=s.averageR;
+  const baseR=s.baseline&&s.baseline.averageR;
+  const diff=s.difference&&s.difference.averageR;
+  const wr=s.winRate;
+
+  return`
+    <div class="bcard">
+      <div class="bcard-top">
+        <div>
+          <span class="bcard-type">${E(dim)}</span>
+          <h3 class="bcard-title">${E(seg)}</h3>
+          <p class="bcard-sample">${n} trade${n===1?'':'s'} · ${E(evidenceLabel(status))}</p>
+        </div>
+        ${evidenceBadges(s.evidence)}
+      </div>
+      <div class="bcard-metrics">
+        ${cardMetric('Average R',fmtSignedR(avgR),Number.isFinite(Number(avgR))?C(avgR):'')}
+        ${cardMetric('Baseline',fmtSignedR(baseR))}
+        ${cardMetric('Difference',fmtSignedR(diff),Number.isFinite(Number(diff))?C(diff):'')}
+        ${cardMetric('Win Rate',fmtPct(wr,1))}
+      </div>
+      ${Number.isFinite(Number(diff))?`<div class="bcard-note">${E(deviationWord(diff))}</div>`:''}
+    </div>
+  `;
+}
+
+function renderPatternsBody(patterns){
+  const el=$('#behaviorPatternsBody');
+  if(!el)return;
+
+  const prepared=preparePatterns(patterns);
+  if(!prepared.length){
+    el.innerHTML=
+      `<div class="behavior-empty">
+        <p class="baseline-message">No behavioral patterns detected yet.</p>
+        <p class="baseline-hint">
+          Keep logging consistent trades. GhostTrader will surface patterns
+          as enough evidence accumulates.
+        </p>
+      </div>`;
+    return;
+  }
+
+  const groups=groupPatterns(prepared);
+  el.innerHTML=groups.map(g=>
+    `<div class="behavior-group">
+      <h3 class="behavior-group-title">${E(g.group)}</h3>
+      <div class="bcard-grid">
+        ${g.items.map(renderPatternCard).join('')}
+      </div>
+    </div>`
+  ).join('');
+}
+
+function renderDriversBody(signals){
+  const el=$('#performanceDriversBody');
+  if(!el)return;
+
+  const drivers=prepareDrivers(signals);
+  if(!drivers.length){
+    el.innerHTML=
+      `<div class="behavior-empty">
+        <p class="baseline-message">No performance drivers with usable evidence yet.</p>
+        <p class="baseline-hint">
+          Segment performance appears here once sample sizes support
+          emerging or stronger evidence.
+        </p>
+      </div>`;
+    return;
+  }
+
+  /* Cap display to keep the page focused — full list available via API */
+  const shown=drivers.slice(0,18);
+  el.innerHTML=
+    `<div class="bcard-grid">
+      ${shown.map(renderDriverCard).join('')}
+    </div>
+    ${drivers.length>18
+      ?`<p class="behavior-more">${drivers.length-18} additional segment(s) not shown.</p>`
+      :''}`;
+}
+
+async function loadBehaviorPatterns(){
+  const el=$('#behaviorPatternsBody');
+  if(!el)return;
+  el.innerHTML=`<div class="baseline-loading">Scanning behavioral patterns…</div>`;
+  try{
+    const d=await api('/api/behavior/patterns?'+behaviorQuery());
+    const list=d&&Array.isArray(d.patterns)?d.patterns:[];
+    renderPatternsBody(list);
+  }catch(_e){
+    el.innerHTML=
+      `<div class="baseline-error">
+        <p>Pattern scan temporarily unavailable.</p>
+      </div>`;
+  }
+}
+
+async function loadBehaviorSignals(){
+  const el=$('#performanceDriversBody');
+  if(!el)return;
+  el.innerHTML=`<div class="baseline-loading">Analyzing performance drivers…</div>`;
+  try{
+    const d=await api('/api/behavior/signals?'+behaviorQuery());
+    const signals=d&&d.signals?d.signals:d;
+    renderDriversBody(signals||{});
+  }catch(_e){
+    el.innerHTML=
+      `<div class="baseline-error">
+        <p>Behavioral patterns temporarily unavailable.</p>
+      </div>`;
+  }
+}
+
 async function insights(){
-  /* Baseline loads independently so premium content is never blocked */
+  /* Each behavioral request is independent — failures must not block others */
   const baselinePromise=loadTraderBaseline();
+  const patternsPromise=loadBehaviorPatterns();
+  const signalsPromise=loadBehaviorSignals();
 
   const d=await api(
     '/api/premium?'+premiumQuery()
@@ -334,7 +668,7 @@ async function insights(){
     ).join('')||
     '<p>No process flags found.</p>';
 
-  await baselinePromise;
+  await Promise.allSettled([baselinePromise,patternsPromise,signalsPromise]);
 }
 
 async function reports(){
