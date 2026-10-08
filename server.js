@@ -28,7 +28,7 @@ const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
 const {createMT5Router}=require("./mt5/mt5-routes");
 const {createAdminRouter}=require("./routes/admin-routes");
 const {tradeMatchClauseNoAlias,resolveAccount}=require("./utils/account-match");
-const {appendJournalDateFilters}=require("./metrics/query-builder");
+const {appendJournalDateFilters,appendJournalDayFilter}=require("./metrics/query-builder");
 /*
  * Batch 1B — JWT secret hardening.
  * Production must never silently sign tokens with the public
@@ -108,10 +108,15 @@ app.get("/api/trades",auth,async(req,res)=>{try{
     to: req.query.to,
     tz: req.query.tz || "UTC",
   });
-  if(req.query.date && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)){
-    const tz=String(req.query.tz||"UTC");v.push(tz,req.query.date);
-    w.push(`(trade_date AT TIME ZONE $${v.length-1})::date=$${v.length}::date`);
-  }
+  /*
+   * Single-day filter (Calendar day drill-down).
+   * Uses timezone($N::text, trade_date)::date — same safe pattern as
+   * Unified Metrics / calendar month — avoids 42P18 on untyped AT TIME ZONE.
+   */
+  appendJournalDayFilter(v, w, {
+    date: req.query.date,
+    tz: req.query.tz || "UTC",
+  });
   let r=await db(`SELECT ${listFields} FROM trades WHERE ${w.join(" AND ")} ORDER BY trade_date DESC,id DESC LIMIT 1000`,v);
   res.json({trades:r.rows});
 }catch(e){console.error(e);res.status(500).json({error:"Could not load trades."})}});

@@ -4,6 +4,9 @@ const { buildTradeFilters } = require("../metrics/query-builder");
 /**
  * Strategy Simulator — response-only hypotheticals from live journal MFE/MAE.
  * Does NOT write results into trades. Does NOT affect live metrics.
+ *
+ * Also provides POST /api/backtests so Simulation Lab can persist a scenario
+ * name after a successful run (table already exists in db/init.js).
  */
 function createSimulationRouter({ db, auth, n }) {
   const router = express.Router();
@@ -68,6 +71,34 @@ function createSimulationRouter({ db, auth, n }) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: "Simulation failed." });
+    }
+  });
+
+  /**
+   * Persist a named simulation scenario.
+   * Frontend (public/js/simulation.js) always POSTs here after a successful
+   * /api/simulate. Missing this route caused production "Request failed"
+   * (404 with no error body → api.js generic message).
+   */
+  router.post("/api/backtests", auth, async (req, res) => {
+    try {
+      const name =
+        String(req.body.name || "").trim() || "Untitled scenario";
+      const symbol = String(req.body.symbol || "").trim() || null;
+      const targetR = n(req.body.targetR, 2);
+      const stopR = Math.abs(n(req.body.stopR, 1));
+
+      const r = await db(
+        `INSERT INTO backtests (user_id, name, symbol, target_r, stop_r)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, name, symbol, target_r, stop_r, created_at`,
+        [req.user.id, name, symbol, targetR, stopR]
+      );
+
+      res.status(201).json({ ok: true, backtest: r.rows[0] });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: "Could not save scenario." });
     }
   });
 

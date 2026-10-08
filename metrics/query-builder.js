@@ -107,7 +107,7 @@ function appendJournalDateFilters(params, clauses, { from, to, tz }) {
     const tzIdx = params.length - 1;
     const dIdx = params.length;
     clauses.push(
-      `timezone($${tzIdx}, trade_date)::date >= $${dIdx}::date`
+      `timezone($${tzIdx}::text, trade_date)::date >= $${dIdx}::date`
     );
   }
   if (to && /^\d{4}-\d{2}-\d{2}$/.test(String(to))) {
@@ -115,13 +115,30 @@ function appendJournalDateFilters(params, clauses, { from, to, tz }) {
     const tzIdx = params.length - 1;
     const dIdx = params.length;
     clauses.push(
-      `timezone($${tzIdx}, trade_date)::date <= $${dIdx}::date`
+      `timezone($${tzIdx}::text, trade_date)::date <= $${dIdx}::date`
     );
   }
+}
+
+/**
+ * Single local-calendar day filter for GET /api/trades?date=&tz=
+ * Same semantics as calendar day drill-down: timezone(tz, trade_date)::date = date.
+ * Explicit ::text on the timezone param avoids PostgreSQL 42P18.
+ */
+function appendJournalDayFilter(params, clauses, { date, tz }) {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return;
+  const t = String(tz || "UTC").trim() || "UTC";
+  params.push(t, String(date));
+  const tzIdx = params.length - 1;
+  const dIdx = params.length;
+  clauses.push(
+    `timezone($${tzIdx}::text, trade_date)::date = $${dIdx}::date`
+  );
 }
 
 module.exports = {
   buildTradeFilters,
   appendJournalDateFilters,
+  appendJournalDayFilter,
   VALID_SOURCES,
 };
