@@ -159,8 +159,69 @@ function localNow(){
   ).toISOString().slice(0,16);
 }
 
-function openModal(t){
+/*
+ * Symbol options come from the server (utils/symbol-specs.js is the
+ * single source), so the dropdown can never drift from what the
+ * backend accepts. The backend still re-validates every symbol.
+ */
+async function loadTradeSymbols(){
+  try{
+    const d=await api('/api/trade-symbols');
+    state.tradeSymbols=Array.isArray(d.symbols)?d.symbols:[];
+  }catch(e){
+    state.tradeSymbols=state.tradeSymbols||[];
+    showError('Could not load the symbol list. '+e.message);
+  }
+}
+
+function fillSymbolSelect(selected){
+  const sel=$("#ts");
+  const list=state.tradeSymbols||[];
+
+  sel.innerHTML=
+    '<option value="">Select symbol</option>'+
+    list.map(x=>
+      `<option value="${E(x.symbol)}">${E(x.label)}${
+        x.available===false?' (broker spec not synced)':''
+      }</option>`
+    ).join('');
+
+  const want=String(selected||'').trim();
+
+  if(!want)return;
+
+  if(list.some(x=>x.symbol===want.toUpperCase())){
+    sel.value=want.toUpperCase();
+    return;
+  }
+
+  /* Existing trade whose stored symbol is not in the supported list
+     (legacy alias / broker name): keep it selectable so opening and
+     saving an edit never silently changes it. */
+  const opt=document.createElement('option');
+  opt.value=want;
+  opt.textContent=want+' (existing)';
+  sel.appendChild(opt);
+  sel.value=want;
+}
+
+const BROKER_LOCKED_FIELDS=
+  ['ta','ts','td','tt','te','sl','tp','ex','qty'];
+
+function applyBrokerLock(isBroker){
+  BROKER_LOCKED_FIELDS.forEach(id=>{
+    const el=$("#"+id);
+    if(el)el.disabled=isBroker;
+  });
+
+  const note=$("#brokerLockNote");
+  if(note)note.classList.toggle('hide',!isBroker);
+}
+
+async function openModal(t){
   state.edit=t||null;
+
+  await loadTradeSymbols();
 
   $("#mh").textContent=
     t?'Edit trade':'Add trade';
@@ -240,6 +301,10 @@ function openModal(t){
     }
   }
 
+  fillSymbolSelect(t?t.symbol:'');
+
+  applyBrokerLock(Boolean(t)&&t.source==='tradelocker');
+
   $("#shot").value='';
 
   $("#modal").classList.remove('hide');
@@ -272,11 +337,29 @@ $("#save").onclick=async()=>{
         'Create an account before adding a trade.'
       );
 
-    if(!$("#ts").value.trim())
-      throw Error('Symbol is required.');
+    const isBroker=Boolean(state.edit)&&state.edit.source==='tradelocker';
 
-    if(!$("#te").value)
-      throw Error('Entry price is required.');
+    /* Do not rely on HTML `required`: the Save button sits outside
+       the <form>, so native validation never runs. */
+    const symbol=$("#ts").value.trim().toUpperCase();
+
+    if(!symbol)
+      throw Error('Please select a symbol.');
+
+    const supported=(state.tradeSymbols||[]).some(x=>x.symbol===symbol);
+    const unchangedExisting=Boolean(state.edit)&&
+      symbol===String(state.edit.symbol||'').trim().toUpperCase();
+
+    if(!isBroker&&!supported&&!unchangedExisting)
+      throw Error('Please select a supported symbol from the list.');
+
+    if(!isBroker){
+      if(!$("#te").value||!(Number($("#te").value)>0))
+        throw Error('Entry price must be greater than zero.');
+
+      if(!(Number($("#qty").value)>0))
+        throw Error('Quantity must be greater than zero.');
+    }
 
     const f=$("#shot").files[0];
 
@@ -299,7 +382,7 @@ $("#save").onclick=async()=>{
 
     const b={
       account:$("#ta").value,
-      symbol:$("#ts").value,
+      symbol:symbol,
       direction:$("#td").value,
       tradeDate:$("#tt").value,
       entry:$("#te").value,

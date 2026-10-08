@@ -452,6 +452,28 @@ await db(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_users_created ON users(created_at DESC)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email))`);
+
+/*
+ * Intelligence readiness — optional FK for playbook linkage and
+ * source-based filtering for multi-ingestion analytics.
+ */
+await db(`
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'fk_trades_playbook_id'
+    ) THEN
+      ALTER TABLE trades
+      ADD CONSTRAINT fk_trades_playbook_id
+      FOREIGN KEY (playbook_id) REFERENCES playbooks(id)
+      ON DELETE SET NULL;
+    END IF;
+  END $$;
+`);
+await db(`CREATE INDEX IF NOT EXISTS idx_trades_user_source ON trades(user_id, source)`);
+await db(`CREATE INDEX IF NOT EXISTS idx_trades_user_setup ON trades(user_id, setup)`);
+await db(`CREATE INDEX IF NOT EXISTS idx_trades_user_session ON trades(user_id, session)`);
+
 await db(`CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_admin_audit_admin ON admin_audit_log(admin_user_id, created_at DESC)`);
 await db(`CREATE INDEX IF NOT EXISTS idx_admin_audit_target ON admin_audit_log(target_user_id, created_at DESC)`);

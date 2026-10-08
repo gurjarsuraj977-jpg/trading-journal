@@ -41,8 +41,51 @@ async function maybeBootstrapAdmin(db, userRow) {
   return r.rows[0] || userRow;
 }
 
+/**
+ * Lightweight in-memory rate limit for auth endpoints.
+ * Protects register/login against credential stuffing without
+ * external dependencies. Resets on process restart (acceptable
+ * for single-instance deployments; multi-instance needs Redis later).
+ */
+const authAttempts = new Map();
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_MAX = 30; // per IP per window
+
+function clientKey(req) {
+  return (
+    req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  );
+}
+
+function rateLimitAuth(req, res, next) {
+  const key = clientKey(req);
+  const now = Date.now();
+  let bucket = authAttempts.get(key);
+  if (!bucket || now - bucket.start > AUTH_WINDOW_MS) {
+    bucket = { start: now, count: 0 };
+    authAttempts.set(key, bucket);
+  }
+  bucket.count += 1;
+  if (bucket.count > AUTH_MAX) {
+    return res.status(429).json({
+      error: "Too many authentication attempts. Please try again later.",
+    });
+  }
+  // Opportunistic cleanup of stale keys (bounded map size)
+  if (authAttempts.size > 5000) {
+    for (const [k, v] of authAttempts) {
+      if (now - v.start > AUTH_WINDOW_MS) authAttempts.delete(k);
+    }
+  }
+  next();
+}
+
 function createAuthRouter({ db, bcrypt, token, setCookie, auth }) {
   const router = express.Router();
+  router.use(rateLimitAuth);
 
   router.post("/register", async (req, res) => {
     try {

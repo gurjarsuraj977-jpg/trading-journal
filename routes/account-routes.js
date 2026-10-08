@@ -1,4 +1,5 @@
 const express=require("express");
+const {tradeMatchClause}=require("../utils/account-match");
 
 /*
  * GhostTrader Accounts V2 — "Account Command Center".
@@ -20,10 +21,6 @@ const express=require("express");
  */
 
 const ACCOUNT_TYPES=["manual","prop","personal","demo","evaluation"];
-
-function tradeMatchClause(accountIdParam,accountNameParam){
-  return `(t.account_id=${accountIdParam} OR (t.account_id IS NULL AND t.account=${accountNameParam}))`;
-}
 
 function createAccountRouter({db,auth,n}){
   const router=express.Router();

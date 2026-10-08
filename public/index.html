@@ -1840,6 +1840,12 @@
 
       <input id="tid" type="hidden">
 
+      <p id="brokerLockNote" class="muted full hide" style="margin:0">
+        This trade was imported from TradeLocker. Broker-derived
+        values (symbol, prices, quantity, date, P&amp;L) are locked;
+        you can edit your journal fields.
+      </p>
+
       <label>
         Account
         <select id="ta"></select>
@@ -1847,7 +1853,9 @@
 
       <label>
         Symbol
-        <input id="ts" required placeholder="XAUUSD">
+        <select id="ts" required>
+          <option value="">Select symbol</option>
+        </select>
       </label>
 
       <label>

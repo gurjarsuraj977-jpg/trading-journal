@@ -3,7 +3,8 @@ const express=require("express"),path=require("path"),cookieParser=require("cook
 const {createMarketDataRouter}=require("./market-data/market-data-routes");
 const {createMarketDataProviderRouter}=require("./market-data/market-data-provider-routes");
 const {calculateTrade}=require("./utils/trade-calculator");
-const {getSymbolSpec}=require("./utils/symbol-specs");
+const {getManualTradeSymbols}=require("./utils/symbol-specs");
+const {validateSubmittedSymbol,calculateManualTrade,listSymbolAvailability}=require("./utils/trade-spec-resolver");
 const {n}=require("./utils/number");
 const {pool,db}=require("./db/pool");
 const createAuthMiddleware=require("./middleware/auth");
@@ -25,6 +26,7 @@ const {getCurrencyConversionRate}=require("./market-data/twelve-data");
 const {createTradeLockerRouter}=require("./tradelocker/tradelocker-routes");
 const {createMT5Router}=require("./mt5/mt5-routes");
 const {createAdminRouter}=require("./routes/admin-routes");
+const {tradeMatchClauseNoAlias,resolveAccount}=require("./utils/account-match");
 /*
  * Batch 1B — JWT secret hardening.
  * Production must never silently sign tokens with the public
@@ -36,6 +38,20 @@ if(process.env.NODE_ENV==="production"&&!process.env.JWT_SECRET){
   process.exit(1);
 }
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
+/*
+ * Baseline security headers (no external helmet dependency).
+ * Does not alter CORS for same-origin cookie auth.
+ */
+app.use((req,res,next)=>{
+  res.setHeader("X-Content-Type-Options","nosniff");
+  res.setHeader("X-Frame-Options","SAMEORIGIN");
+  res.setHeader("Referrer-Policy","strict-origin-when-cross-origin");
+  res.setHeader("X-XSS-Protection","0");
+  if(process.env.NODE_ENV==="production"){
+    res.setHeader("Strict-Transport-Security","max-age=31536000; includeSubDomains");
+  }
+  next();
+});
 app.use(express.json({limit:"5mb"}));app.use(cookieParser());app.use(express.static(path.join(__dirname,"public")));
 const auth=createAuthMiddleware({SECRET,db});
 
@@ -63,7 +79,21 @@ app.get("/api/trades",auth,async(req,res)=>{try{
   if(["BUY","SELL"].includes(req.query.direction)){v.push(req.query.direction);w.push(`direction=$${v.length}`)}
   if(req.query.result==="win")w.push("profit_loss>0");
   if(req.query.result==="loss")w.push("profit_loss<0");
-  if(req.query.account){v.push(String(req.query.account));w.push(`account=$${v.length}`)}
+  /*
+   * Account filter uses dual-match (account_id OR legacy free-text)
+   * so journal list agrees with analytics and account detail after renames.
+   */
+  if(req.query.account){
+    const acctName=String(req.query.account).trim();
+    const acc=await resolveAccount(db,req.user.id,{name:acctName});
+    if(acc){
+      v.push(acc.id,acc.name);
+      w.push(tradeMatchClauseNoAlias(`$${v.length-1}`,`$${v.length}`));
+    }else{
+      v.push(acctName);
+      w.push(`account=$${v.length} AND account_id IS NULL`);
+    }
+  }
   if(req.query.strategy){v.push(String(req.query.strategy).trim());w.push(`strategy=$${v.length}`)}
   if(req.query.session){v.push(String(req.query.session).trim());w.push(`session=$${v.length}`)}
   if(req.query.playbookId && Number.isInteger(Number(req.query.playbookId))){v.push(Number(req.query.playbookId));w.push(`playbook_id=$${v.length}`)}
@@ -83,10 +113,18 @@ app.get("/api/trades",auth,async(req,res)=>{try{
  * logic). Scoped to one trade at a time so it never re-introduces
  * the bulk-screenshot payload the list endpoint above just removed.
  */
+/*
+ * Supported symbols for the Add/Edit Trade dropdown. Single source:
+ * utils/symbol-specs.js. `available:false` marks instruments whose
+ * broker contract specification has not been synced yet (US100).
+ */
+app.get("/api/trade-symbols",auth,async(req,res)=>{try{
+  res.json({symbols:await listSymbolAvailability(db,getManualTradeSymbols())});
+}catch(e){console.error(e);res.status(500).json({error:"Could not load symbols."})}});
 app.get("/api/trades/:id",auth,async(req,res)=>{try{
   const id=Number(req.params.id);
   if(!Number.isInteger(id)||id<=0)return res.status(400).json({error:"Invalid trade ID."});
-  let r=await db(`SELECT ${fields} FROM trades WHERE id=$1 AND user_id=$2`,[id,req.user.id]);
+  let r=await db(`SELECT ${fields},source FROM trades WHERE id=$1 AND user_id=$2`,[id,req.user.id]);
   if(!r.rowCount)return res.status(404).json({error:"Trade not found."});
   res.json({trade:r.rows[0]});
 }catch(e){console.error(e);res.status(500).json({error:"Could not load trade."})}});
@@ -94,15 +132,31 @@ app.post("/api/trades",auth,async(req,res)=>{
   try{
     const b=req.body;
 
-    const s=String(b.symbol||"").trim().toUpperCase();
+    const rawSymbol=String(b.symbol||"").trim();
     const d=String(b.direction||"").toUpperCase();
     const acct=String(b.account||"Main Account").trim();
 
-    if(!s||!["BUY","SELL"].includes(d)){
+    if(!rawSymbol||!["BUY","SELL"].includes(d)){
       return res.status(400).json({
         error:"Symbol and direction are required."
       });
     }
+
+    /*
+     * The backend is the authority on which symbols exist: the UI
+     * dropdown is a convenience, not a security boundary. Only a
+     * canonical supported symbol may reach the calculator / INSERT.
+     */
+    const symbolCheck=validateSubmittedSymbol(rawSymbol);
+
+    if(!symbolCheck.ok){
+      return res.status(400).json({
+        error:symbolCheck.error,
+        code:symbolCheck.code
+      });
+    }
+
+    const s=symbolCheck.symbol;
 
 /*
  * Batch 1C — resolve the account's id/active status alongside the
@@ -158,30 +212,16 @@ const accountCurrency=String(
   ac.rows[0].currency||"USD"
 ).trim().toUpperCase();
 
-const symbolSpec=getSymbolSpec(s);
-
-let pnlConversionRate=null;
-
-if(
-  symbolSpec.known &&
-  symbolSpec.pnlCurrency &&
-  accountCurrency &&
-  symbolSpec.pnlCurrency.toUpperCase()!==accountCurrency
-){
-  const conversion=await getCurrencyConversionRate({
-    fromCurrency:symbolSpec.pnlCurrency,
-    toCurrency:accountCurrency
-  });
-
-  pnlConversionRate=conversion.rate;
-}
-
 /*
  * IMPORTANT:
- * Backend calculation is now authoritative.
- * Frontend-calculated values are NOT trusted.
+ * Backend calculation is authoritative; frontend-calculated values
+ * are NOT trusted. The contract size is resolved server-side (static
+ * spec, or the broker-derived market_symbols value for US100) and is
+ * never taken from the request body.
  */
-const calculated=calculateTrade({
+const manual=await calculateManualTrade({
+  db,
+  getRate:getCurrencyConversionRate,
   symbol:s,
   direction:d,
   entry,
@@ -193,22 +233,24 @@ const calculated=calculateTrade({
     ac.rows[0].starting_balance,
     0
   ),
-  accountCurrency,
-  pnlConversionRate
+  accountCurrency
 });
 
     /*
      * Batch A1 — POST must reject the same way PUT already does:
-     * an unknown/unconvertible symbol or missing conversion means
-     * calculateTrade() returns calculated.error, and an invalid or
-     * zero-value trade must never reach the database.
+     * an unknown/unconvertible symbol, missing contract size or
+     * missing conversion means the calculation reports an error, and
+     * an invalid or zero-value trade must never reach the database.
      */
-    if(calculated.error){
-      return res.status(400).json({
-        error:calculated.error,
-        calculation:calculated
+    if(!manual.ok){
+      return res.status(manual.status).json({
+        error:manual.error,
+        code:manual.code,
+        calculation:manual.calculation
       });
     }
+
+    const calculated=manual.calculation;
 
     let mfeR=n(b.mfeR);
     let maeR=n(b.maeR);
@@ -375,9 +417,111 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
 
     const current=existing.rows[0];
 
-    const s=String(
-      b.symbol!==undefined ? b.symbol : current.symbol
-    ).trim().toUpperCase();
+    /*
+     * TradeLocker-imported trades carry broker-derived values (symbol,
+     * direction, entry/exit, quantity, SL/TP, date, P&L). Those must
+     * never be re-derived from the local calculator: it has no broker
+     * contract size for them (e.g. US100) and would overwrite the
+     * broker's P&L with a local estimate. Only journal fields are
+     * editable; every broker-derived column is left exactly as stored.
+     */
+    if(String(current.source||"manual")==="tradelocker"){
+      const clamp100=v=>Math.max(0,Math.min(100,Math.round(n(v))));
+      const text=(key,col)=>b[key]!==undefined?(b[key]||""):(current[col]||"");
+      const optNum=(key,col)=>{
+        if(b[key]===undefined)return current[col];
+        return b[key]===""||b[key]===null?null:n(b[key],null);
+      };
+
+      await db(
+        `
+        UPDATE trades
+        SET
+          mfe_r=$1,
+          mae_r=$2,
+          max_favorable_price=$3,
+          max_adverse_price=$4,
+          rule_score=$5,
+          playbook_id=$6,
+          strategy=$7,
+          session=$8,
+          setup=$9,
+          entry_reason=$10,
+          exit_reason=$11,
+          emotion_before=$12,
+          emotion_after=$13,
+          mistakes=$14,
+          confidence=$15,
+          market_condition=$16,
+          screenshot_data=$17,
+          notes=$18
+        WHERE id=$19 AND user_id=$20
+        `,
+        [
+          b.mfeR!==undefined?n(b.mfeR):current.mfe_r,
+          b.maeR!==undefined?n(b.maeR):current.mae_r,
+          optNum("maxFavorablePrice","max_favorable_price"),
+          optNum("maxAdversePrice","max_adverse_price"),
+          b.ruleScore!==undefined?clamp100(b.ruleScore):current.rule_score,
+          b.playbookId!==undefined
+            ?(b.playbookId?Number(b.playbookId):null)
+            :current.playbook_id,
+          text("strategy","strategy"),
+          text("session","session"),
+          text("setup","setup"),
+          text("entryReason","entry_reason"),
+          text("exitReason","exit_reason"),
+          text("emotionBefore","emotion_before"),
+          text("emotionAfter","emotion_after"),
+          text("mistakes","mistakes"),
+          b.confidence!==undefined?clamp100(b.confidence):current.confidence,
+          text("marketCondition","market_condition"),
+          b.screenshotData!==undefined
+            ?String(b.screenshotData||"").slice(0,4500000)
+            :(current.screenshot_data||""),
+          text("notes","notes"),
+          id,
+          req.user.id
+        ]
+      );
+
+      return res.json({
+        success:true,
+        brokerDerivedPreserved:true
+      });
+    }
+
+    /*
+     * Symbol handling for manual trades:
+     *  - not sent, or sent unchanged: keep the stored symbol exactly
+     *    (legacy values such as NAS100 stay editable, nothing is
+     *    silently rewritten);
+     *  - changed: must be a canonical supported symbol (strict).
+     */
+    const storedSymbol=String(current.symbol||"").trim().toUpperCase();
+    const submittedSymbol=
+      b.symbol!==undefined?String(b.symbol).trim().toUpperCase():storedSymbol;
+
+    let s=storedSymbol;
+
+    if(!submittedSymbol){
+      return res.status(400).json({
+        error:"Symbol and direction are required."
+      });
+    }
+
+    if(submittedSymbol!==storedSymbol){
+      const symbolCheck=validateSubmittedSymbol(submittedSymbol);
+
+      if(!symbolCheck.ok){
+        return res.status(400).json({
+          error:symbolCheck.error,
+          code:symbolCheck.code
+        });
+      }
+
+      s=symbolCheck.symbol;
+    }
 
     const d=String(
       b.direction!==undefined ? b.direction : current.direction
@@ -471,25 +615,9 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       ac.rows[0].currency||"USD"
     ).trim().toUpperCase();
 
-    const symbolSpec=getSymbolSpec(s);
-
-    let pnlConversionRate=null;
-
-    if(
-      symbolSpec.known &&
-      symbolSpec.pnlCurrency &&
-      accountCurrency &&
-      symbolSpec.pnlCurrency.toUpperCase()!==accountCurrency
-    ){
-      const conversion=await getCurrencyConversionRate({
-        fromCurrency:symbolSpec.pnlCurrency,
-        toCurrency:accountCurrency
-      });
-
-      pnlConversionRate=conversion.rate;
-    }
-
-    const calculated=calculateTrade({
+    const manual=await calculateManualTrade({
+      db,
+      getRate:getCurrencyConversionRate,
       symbol:s,
       direction:d,
       entry,
@@ -501,16 +629,18 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
         ac.rows[0].starting_balance,
         0
       ),
-      accountCurrency,
-      pnlConversionRate
+      accountCurrency
     });
 
-    if(calculated.error){
-      return res.status(400).json({
-        error:calculated.error,
-        calculation:calculated
+    if(!manual.ok){
+      return res.status(manual.status).json({
+        error:manual.error,
+        code:manual.code,
+        calculation:manual.calculation
       });
     }
+
+    const calculated=manual.calculation;
 
     const maxFavorable=
       b.maxFavorablePrice===""||
@@ -741,7 +871,7 @@ await db(
   }catch(e){
     console.error("Trade update error:",e);
     res.status(500).json({
-      error:e.message||"Failed to update trade."
+      error:"Could not update trade."
     });
   }
 });

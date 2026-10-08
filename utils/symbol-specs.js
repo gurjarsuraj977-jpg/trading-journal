@@ -194,8 +194,45 @@ for (const index of INDEX_PLACEHOLDERS) {
 }
 
 
+/**
+ * Single authoritative list of instruments that can be selected when
+ * manually adding / editing a trade (Add Trade symbol dropdown, and
+ * the server-side allow-list for POST/PUT /api/trades).
+ *
+ * Canonical identifiers only. Every entry must exist in SYMBOL_SPECS.
+ * Aliases (NAS100, USTEC, ...) are intentionally NOT listed: they
+ * resolve to a canonical symbol for spec lookup but are never
+ * accepted as a stored trade symbol.
+ */
+const MANUAL_TRADE_SYMBOLS = [
+  { symbol: "XAUUSD", label: "XAUUSD \u2014 Gold" },
+  { symbol: "EURUSD", label: "EURUSD \u2014 Euro / US Dollar" },
+  { symbol: "GBPUSD", label: "GBPUSD \u2014 British Pound / US Dollar" },
+  { symbol: "USDJPY", label: "USDJPY \u2014 US Dollar / Japanese Yen" },
+  { symbol: "AUDUSD", label: "AUDUSD \u2014 Australian Dollar / US Dollar" },
+  { symbol: "USDCAD", label: "USDCAD \u2014 US Dollar / Canadian Dollar" },
+  { symbol: "USDCHF", label: "USDCHF \u2014 US Dollar / Swiss Franc" },
+  { symbol: "BTCUSD", label: "BTCUSD \u2014 Bitcoin" },
+  { symbol: "ETHUSD", label: "ETHUSD \u2014 Ethereum" },
+  { symbol: "US100", label: "US100 \u2014 Nasdaq 100" }
+];
+
+function getManualTradeSymbols() {
+  return MANUAL_TRADE_SYMBOLS
+    .filter(item => SYMBOL_SPECS[item.symbol])
+    .map(item => ({ ...item }));
+}
+
+function isSupportedManualSymbol(canonical) {
+  return MANUAL_TRADE_SYMBOLS.some(
+    item => item.symbol === canonical && SYMBOL_SPECS[item.symbol]
+  );
+}
+
 module.exports = {
   SYMBOL_SPECS,
   getSymbolSpec,
-  resolveCanonicalSymbol
+  resolveCanonicalSymbol,
+  getManualTradeSymbols,
+  isSupportedManualSymbol
 };
