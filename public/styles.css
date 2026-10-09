@@ -1235,3 +1235,16 @@ html[data-theme="dark"] .bcard{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
+
+/* ============================================================
+   Behavior UI Batch 3A — legacy performance groups
+   Subtle hierarchy: Behavioral sections stay visually stronger
+   (16px / 800 headings); legacy groups keep the standard panel
+   heading with a legible, muted explanatory note. Dark-mode colour
+   is inherited from the existing .panel-head p dark rule.
+   ============================================================ */
+.legacy-intel .panel-head p{
+  font-size:11px;
+  line-height:1.45;
+  color:var(--muted);
+}

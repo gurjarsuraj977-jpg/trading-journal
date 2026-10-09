@@ -25,6 +25,35 @@ function insightRow(x){
   `;
 }
 
+/* ============================================================
+   Behavior UI Batch 3A — legacy coach presentation language
+   Presentation only. The API payload (type/title/body), the card
+   CSS class (keyed on the raw type) and every calculation are
+   unchanged. Legacy Premium has no evidence model, so no evidence
+   status is attached here.
+   ============================================================ */
+const COACH_TYPE_LABELS={
+  EDGE:'PERFORMANCE',
+  LEAK:'UNDERPERFORMANCE'
+};
+
+function coachTypeLabel(type){
+  const t=String(type||'');
+  return COACH_TYPE_LABELS[t]||t;
+}
+
+/* Rewrites the known legacy title prefixes; any other title is left as-is */
+function coachTitleText(type,title){
+  const t=String(title||'');
+  if(type==='EDGE'&&/^Strongest edge:\s*/i.test(t))
+    return t.replace(/^Strongest edge:\s*/i,
+      'A higher-performing group in your current history is ');
+  if(type==='LEAK'&&/^Biggest performance leak is\s*/i.test(t))
+    return t.replace(/^Biggest performance leak is\s*/i,
+      'A lower-performing group in your current history is ');
+  return t;
+}
+
 function premiumQuery(){
   /* tz aligns Reports with Unified Metrics local-calendar contract */
   return new URLSearchParams({
@@ -618,8 +647,8 @@ async function insights(){
             'coach-positive':
             'coach-neutral'
       }">
-        <span class="tag">${E(x.type)}</span>
-        <h3>${E(x.title)}</h3>
+        <span class="tag">${E(coachTypeLabel(x.type))}</span>
+        <h3>${E(coachTitleText(x.type,x.title))}</h3>
         <p>${E(x.body)}</p>
       </div>`
     ).join('')||
@@ -637,11 +666,11 @@ async function insights(){
 
   $('#edgeList').innerHTML=
     strong.map(insightRow).join('')||
-    '<p>No edge data yet.</p>';
+    '<p>No performance groups yet.</p>';
 
   $('#leakList').innerHTML=
     leaks.map(insightRow).join('')||
-    '<p>No negative edge detected in the selected period.</p>';
+    '<p>No negative-P&amp;L groups in the selected period.</p>';
 
   const psych=[
     ...(d.psychology?.confidence||[]),
