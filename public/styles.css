@@ -1248,3 +1248,72 @@ html[data-theme="dark"] .bcard{
   line-height:1.45;
   color:var(--muted);
 }
+
+/* ============================================================
+   Behavior UI Batch 3B — Historical P&L groups (collapsed wrapper)
+   Native <details>: no JS, keyboard + screen-reader accessible, and
+   its open/closed state survives insights() refreshes because only
+   the inner lists (#edgeList / #leakList) are re-rendered.
+   Colours use theme variables only (light + dark follow automatically).
+   Deliberately quieter than the Behavioral sections (13px / 700 title
+   vs their 16px / 800 headings).
+   ============================================================ */
+.legacy-groups{
+  margin:0 0 16px;
+}
+.legacy-groups > summary{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  position:relative;
+  min-height:var(--touch-min,44px);
+  padding:10px 14px 10px 34px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:transparent;
+  cursor:pointer;
+  list-style:none;
+}
+.legacy-groups > summary::-webkit-details-marker{
+  display:none;
+}
+.legacy-groups > summary::before{
+  content:"\25B8";
+  position:absolute;
+  left:14px;
+  top:11px;
+  font-size:12px;
+  line-height:1.3;
+  color:var(--muted);
+  transition:transform .15s;
+}
+.legacy-groups[open] > summary::before{
+  transform:rotate(90deg);
+}
+.legacy-groups > summary:hover{
+  border-color:var(--muted);
+}
+.legacy-groups > summary:focus-visible{
+  outline:2px solid var(--blue);
+  outline-offset:2px;
+}
+.legacy-groups-title{
+  font-size:13px;
+  font-weight:700;
+  color:var(--text);
+}
+.legacy-groups-note{
+  font-size:11px;
+  line-height:1.45;
+  color:var(--muted);
+}
+.legacy-groups[open] > summary{
+  margin-bottom:12px;
+}
+.legacy-groups .dashboard-grid{
+  margin-bottom:0;
+}
+/* Two-column rows (name+count | P&L); stays two-column on small screens */
+.insight-row.insight-row-compact{
+  grid-template-columns:1fr auto;
+}

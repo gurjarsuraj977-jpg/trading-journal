@@ -26,6 +26,38 @@ function insightRow(x){
 }
 
 /* ============================================================
+   Behavior UI Batch 3B — legacy group rows (Historical P&L groups)
+   Used only by #edgeList and #leakList. The Premium edge objects carry
+   real name / trades / pnl only; their winRate, avgR and profitFactor
+   are fixed placeholders in the API, so they are deliberately not
+   rendered here. insightRow() above is shared with the Psychology list
+   and is intentionally left unchanged.
+   ============================================================ */
+function legacyGroupRow(x){
+  const g=x||{};
+  /* Missing / non-numeric values are shown as unavailable, never as 0 */
+  const num=v=>(v===null||v===undefined||v==='')?NaN:Number(v);
+  const n=num(g.trades);
+  const p=num(g.pnl);
+  const tradesText=Number.isFinite(n)
+    ?`${n} trade${n===1?'':'s'}`
+    :'Trade count unavailable';
+  const pnlHtml=Number.isFinite(p)
+    ?`<strong class="${C(p)}">${M(p)}</strong>`
+    :`<strong>—</strong>`;
+  return`
+    <div class="insight-row insight-row-compact">
+      <div>
+        <b>${E(g.name)}</b>
+        <small>${tradesText}</small>
+      </div>
+
+      ${pnlHtml}
+    </div>
+  `;
+}
+
+/* ============================================================
    Behavior UI Batch 3A — legacy coach presentation language
    Presentation only. The API payload (type/title/body), the card
    CSS class (keyed on the raw type) and every calculation are
@@ -665,11 +697,11 @@ async function insights(){
     `;
 
   $('#edgeList').innerHTML=
-    strong.map(insightRow).join('')||
+    strong.map(legacyGroupRow).join('')||
     '<p>No performance groups yet.</p>';
 
   $('#leakList').innerHTML=
-    leaks.map(insightRow).join('')||
+    leaks.map(legacyGroupRow).join('')||
     '<p>No negative-P&amp;L groups in the selected period.</p>';
 
   const psych=[
