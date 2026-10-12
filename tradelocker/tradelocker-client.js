@@ -1,3 +1,20 @@
+
+async function fetchWithTimeout(url, options = {}, ms = 20000) {
+  const timeout = Math.max(1000, Math.min(Number(ms) || 20000, 60000));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetchWithTimeout(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e && (e.name === "AbortError" || e.code === "ABORT_ERR")) {
+      throw new Error("TradeLocker request timed out.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * TradeLocker API Client
  * Demo & Live TradeLocker endpoints.
@@ -33,7 +50,7 @@ class TradeLockerClient {
   }) {
     const baseUrl = this.getBaseUrl(environment);
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       baseUrl + '/auth/jwt/token',
       {
         method: 'POST',
@@ -86,7 +103,7 @@ class TradeLockerClient {
 
     const baseUrl = this.getBaseUrl(environment);
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       baseUrl + '/auth/jwt/refresh',
       {
         method: 'POST',
@@ -124,7 +141,7 @@ class TradeLockerClient {
   }) {
     const baseUrl = this.getBaseUrl(environment);
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       baseUrl + '/auth/jwt/all-accounts',
       {
         method: 'GET',
@@ -236,7 +253,7 @@ async getInstruments({
     encodeURIComponent(String(accountId)) +
     '/instruments';
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
       'Authorization': 'Bearer ' + accessToken,
@@ -327,7 +344,7 @@ async getInstruments({
     '?routeId=' +
     encodeURIComponent(String(routeId));
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
       'Authorization': 'Bearer ' + accessToken,
@@ -404,7 +421,7 @@ const endpoint =
   baseUrl +
   '/trade/accounts';
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
       'Authorization': 'Bearer ' + accessToken,
@@ -483,7 +500,7 @@ const endpoint =
       encodeURIComponent(String(accountId)) +
       '/positions';
 
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       method: 'GET',
       headers: {
         'Authorization': 'Bearer ' + accessToken,
@@ -563,7 +580,7 @@ const endpoint =
       encodeURIComponent(String(accountId)) +
       '/executions';
 
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       method: 'GET',
       headers: {
         'Authorization': 'Bearer ' + accessToken,
@@ -665,7 +682,7 @@ const endpoint =
       url += '?' + params.join('&');
     }
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       url,
       {
         method: 'GET',
@@ -719,7 +736,7 @@ const endpoint =
 
     const baseUrl = this.getBaseUrl(environment);
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       baseUrl + '/trade/config',
       {
         method: 'GET',
@@ -805,7 +822,7 @@ const endpoint =
       'accNum': String(accNum)
     };
 
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       url,
       {
         method: 'GET',
