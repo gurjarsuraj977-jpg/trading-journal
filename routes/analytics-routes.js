@@ -59,6 +59,9 @@ function createAnalyticsRouter({ db, auth }) {
         })),
       });
     } catch (e) {
+      if (e && (e.code === "INVALID_TIMEZONE" || e.status === 400)) {
+        return res.status(400).json({ error: e.message || "Invalid timezone." });
+      }
       console.error(e);
       res.status(500).json({ error: "Analytics failed." });
     }

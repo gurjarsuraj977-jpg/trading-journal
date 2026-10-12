@@ -30,12 +30,20 @@ async function getMetrics(db, opts) {
        COALESCE(AVG(profit_loss), 0)::numeric AS avg_pnl,
        COALESCE(MAX(profit_loss), 0)::numeric AS best_trade,
        COALESCE(MIN(profit_loss), 0)::numeric AS worst_trade,
-       COALESCE(AVG(actual_r), 0)::numeric AS avg_r,
-       COALESCE(SUM(actual_r), 0)::numeric AS total_r,
-       COALESCE(AVG(risk_percent), 0)::numeric AS avg_risk_percent,
-       COALESCE(AVG(risk_amount), 0)::numeric AS avg_risk_amount,
+       /* G1: exclude null/invalid R from R stats; genuine 0R remains */
+       COUNT(actual_r) FILTER (
+         WHERE actual_r IS NOT NULL AND actual_r::text ~ '^-?[0-9]'
+       )::int AS r_sample_count,
+       AVG(actual_r) FILTER (
+         WHERE actual_r IS NOT NULL
+       )::numeric AS avg_r,
+       SUM(actual_r) FILTER (
+         WHERE actual_r IS NOT NULL
+       )::numeric AS total_r,
+       COALESCE(AVG(risk_percent) FILTER (WHERE risk_percent IS NOT NULL), 0)::numeric AS avg_risk_percent,
+       COALESCE(AVG(risk_amount) FILTER (WHERE risk_amount IS NOT NULL), 0)::numeric AS avg_risk_amount,
        COALESCE(MAX(risk_percent), 0)::numeric AS largest_risk_percent,
-       COALESCE(STDDEV_POP(risk_percent), 0)::numeric AS risk_stddev
+       COALESCE(STDDEV_POP(risk_percent) FILTER (WHERE risk_percent IS NOT NULL), 0)::numeric AS risk_stddev
      FROM trades
      WHERE ${where}`,
     params
@@ -125,21 +133,35 @@ async function getMetrics(db, opts) {
 
     expectancy: exp,
 
-    avgR: Number(s.avg_r) || 0,
-    totalR: Number(s.total_r) || 0,
+    /* G1: null when no valid R sample — UI must not treat as 0R average */
+    rSampleCount: Number(s.r_sample_count) || 0,
+    avgR: s.avg_r === null || s.avg_r === undefined ? null : Number(s.avg_r),
+    totalR: s.total_r === null || s.total_r === undefined ? null : Number(s.total_r),
 
     avgRiskPercent: Number(s.avg_risk_percent) || 0,
     avgRiskAmount: Number(s.avg_risk_amount) || 0,
     largestRiskPercent: Number(s.largest_risk_percent) || 0,
     riskStddev: Number(s.risk_stddev) || 0,
+    /* G4: risk_percent is stored at trade save from Risk Engine V2 using
+     * account starting_balance at that time. Historical equity-at-entry is
+     * not reconstructed here (no deposit/withdrawal ledger). */
 
     maxDrawdown,
     bestWinStreak,
     bestLossStreak,
 
     startingBalance,
+    /* G2: periodPnl is P&L inside the filter; currentEquity uses starting
+     * balance + period P&L only. Without a full ledger, prior-period P&L
+     * outside the date filter is not added. Do not label period P&L alone
+     * as "all-time equity" when from/to are set. */
+    periodPnl: pnl,
     currentEquity: startingBalance + pnl,
+    equityScope:
+      filter.from || filter.to ? "starting_balance_plus_period_pnl" : "starting_balance_plus_all_matched_pnl",
     balanceNote,
+    equityLimitation:
+      "Deposits, withdrawals, and balance adjustments are not modeled. Multi-currency conversion is not applied.",
 
     equityCurve,
     breakdowns,

@@ -76,12 +76,32 @@ function createAccountRouter({db,auth,n}){
 
       const activeAccounts=accounts.filter(a=>a.active!==false);
 
+      /* G3: never sum mixed currencies into a single total */
+      const byCurrency={};
+      for(const a of activeAccounts){
+        const ccy=String(a.currency||"USD").trim().toUpperCase()||"USD";
+        if(!byCurrency[ccy])byCurrency[ccy]={currency:ccy,totalCapital:0,currentEquity:0,totalPnl:0,accounts:0};
+        byCurrency[ccy].totalCapital+=a.starting_balance;
+        byCurrency[ccy].currentEquity+=a.equity;
+        byCurrency[ccy].totalPnl+=a.pnl;
+        byCurrency[ccy].accounts+=1;
+      }
+      const currencyKeys=Object.keys(byCurrency);
+      const singleCcy=currencyKeys.length===1?currencyKeys[0]:null;
+
       const summary={
         totalAccounts:accounts.length,
         activeAccounts:activeAccounts.length,
-        totalCapital:activeAccounts.reduce((s,a)=>s+a.starting_balance,0),
-        currentEquity:activeAccounts.reduce((s,a)=>s+a.equity,0),
-        totalPnl:activeAccounts.reduce((s,a)=>s+a.pnl,0)
+        currencies:currencyKeys,
+        byCurrency:Object.values(byCurrency),
+        /* Same-currency totals only; mixed → null (not a silent sum) */
+        totalCapital:singleCcy?byCurrency[singleCcy].totalCapital:null,
+        currentEquity:singleCcy?byCurrency[singleCcy].currentEquity:null,
+        totalPnl:singleCcy?byCurrency[singleCcy].totalPnl:null,
+        mixedCurrency:currencyKeys.length>1,
+        note:currencyKeys.length>1
+          ?"Balances and P&L are grouped by currency and are not cross-converted."
+          :undefined
       };
 
       res.json({accounts,summary});
@@ -257,6 +277,10 @@ function createAccountRouter({db,auth,n}){
       if(!/^[A-Z]{3,10}$/.test(currency)){
         return res.status(400).json({error:"Currency must be 3-10 letters."});
       }
+      const startingBalance=Number(req.body.startingBalance);
+      if(!Number.isFinite(startingBalance)||startingBalance<0){
+        return res.status(400).json({error:"Starting balance must be a valid non-negative number."});
+      }
 
       const existingCount=await db("SELECT COUNT(*)::int c FROM accounts WHERE user_id=$1",[req.user.id]);
       const isFirstAccount=Number(existingCount.rows[0].c)===0;
@@ -270,7 +294,7 @@ function createAccountRouter({db,auth,n}){
         const r=await client.query(
           `INSERT INTO accounts(user_id,name,starting_balance,currency,broker,account_type,is_primary,updated_at)
            VALUES($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING *`,
-          [req.user.id,name,n(req.body.startingBalance),currency,broker,accountType,wantsPrimary||isFirstAccount]
+          [req.user.id,name,startingBalance,currency,broker,accountType,wantsPrimary||isFirstAccount]
         );
 
         await client.query("COMMIT");

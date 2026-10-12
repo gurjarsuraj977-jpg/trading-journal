@@ -102,10 +102,44 @@ function equityStats(rows) {
   };
 }
 
+/**
+ * R-sample stats from an array of actual_r values.
+ * Null/NaN/non-finite are excluded. Genuine 0R is kept.
+ * Returns null averages when there is no valid sample (not 0).
+ */
+function rStats(values) {
+  const valid = [];
+  for (const v of values || []) {
+    if (v === null || v === undefined || v === "") continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) continue;
+    valid.push(n);
+  }
+  const sampleSize = valid.length;
+  if (sampleSize === 0) {
+    return { sampleSize: 0, avgR: null, totalR: null };
+  }
+  const totalR = valid.reduce((a, b) => a + b, 0);
+  return { sampleSize, avgR: totalR / sampleSize, totalR };
+}
+
+/** Basic IANA-like timezone name check (rejects empty / injection-ish). */
+function isValidTimezoneName(tz) {
+  const t = String(tz || "").trim();
+  if (!t || t.length > 64) return false;
+  // Allow UTC, Etc/GMT, Area/Location, and common aliases
+  if (t === "UTC" || t === "GMT") return true;
+  if (!/^[A-Za-z0-9_+\-\/]+$/.test(t)) return false;
+  if (t.includes("..") || t.startsWith("/")) return false;
+  return true;
+}
+
 module.exports = {
   classifyPnl,
   winRate,
   expectancy,
   profitFactor,
   equityStats,
+  rStats,
+  isValidTimezoneName,
 };

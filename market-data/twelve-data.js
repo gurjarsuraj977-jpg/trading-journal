@@ -22,6 +22,24 @@ const SYMBOL_MAP = {
   ETHUSD: "ETH/USD"
 };
 
+
+/** Bounded outbound fetch (Batch J / R-02). Default 15s. */
+async function fetchWithTimeout(url, options = {}, ms = 15000) {
+  const timeout = Math.max(1000, Math.min(Number(ms) || 15000, 60000));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetchWithTimeout(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e && (e.name === "AbortError" || e.code === "ABORT_ERR")) {
+      throw new Error("Market data provider timed out.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function getApiKey() {
   const key = process.env.TWELVE_DATA_API_KEY;
 
@@ -137,7 +155,7 @@ async function fetchTimeSeries({
     params.set("end_date", endDate);
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${TWELVE_DATA_BASE_URL}?${params.toString()}`,
     {
       method: "GET",
@@ -227,7 +245,7 @@ async function fetchLatestPrice(symbol) {
     apikey: apiKey
   });
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://api.twelvedata.com/price?${params.toString()}`,
     {
       method: "GET",

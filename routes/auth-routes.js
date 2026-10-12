@@ -114,19 +114,30 @@ function createAuthRouter({ db, bcrypt, token, setCookie, auth }) {
       // New registrations are pending until an administrator approves them.
       // Existing users keep status=active via column default.
       const hash = await bcrypt.hash(pw, 12);
-      let r = await db(
-        `
-        INSERT INTO users (name, email, password_hash, role, status)
-        VALUES ($1, $2, $3, 'user', 'pending')
-        RETURNING id, name, email, role, status, token_version
-        `,
-        [name, email, hash]
-      );
-
-      await db(
-        `INSERT INTO accounts (user_id, name) VALUES ($1, 'Main Account')`,
-        [r.rows[0].id]
-      );
+      const { pool } = require("../db/pool");
+      const client = await pool.connect();
+      let r;
+      try {
+        await client.query("BEGIN");
+        r = await client.query(
+          `
+          INSERT INTO users (name, email, password_hash, role, status)
+          VALUES ($1, $2, $3, 'user', 'pending')
+          RETURNING id, name, email, role, status, token_version
+          `,
+          [name, email, hash]
+        );
+        await client.query(
+          `INSERT INTO accounts (user_id, name) VALUES ($1, 'Main Account')`,
+          [r.rows[0].id]
+        );
+        await client.query("COMMIT");
+      } catch (txErr) {
+        try { await client.query("ROLLBACK"); } catch (_) {}
+        throw txErr;
+      } finally {
+        client.release();
+      }
 
       // Optional bootstrap: if this email matches INITIAL_ADMIN_EMAIL, promote.
       const user = await maybeBootstrapAdmin(db, r.rows[0]);
@@ -199,7 +210,30 @@ function createAuthRouter({ db, bcrypt, token, setCookie, auth }) {
     }
   });
 
-  router.post("/logout", (req, res) => {
+  router.post("/logout", async (req, res) => {
+    /* Always clear cookie. If JWT is still valid, bump token_version. */
+    try {
+      const t = req.cookies && req.cookies.gt_token;
+      if (t) {
+        const jwt = require("jsonwebtoken");
+        // Use same secret as server via process.env (createAuthRouter doesn't receive SECRET)
+        const secret = process.env.JWT_SECRET || "dev-only-change-me";
+        try {
+          const payload = jwt.verify(t, secret);
+          const uid = Number(payload.id);
+          if (Number.isInteger(uid) && uid > 0) {
+            await db(
+              `UPDATE users SET token_version = token_version + 1 WHERE id = $1`,
+              [uid]
+            );
+          }
+        } catch (_) {
+          /* expired/invalid token — still clear cookie */
+        }
+      }
+    } catch (e) {
+      console.error("Logout token invalidate:", e && e.message);
+    }
     res.clearCookie("gt_token");
     res.json({ ok: true });
   });
