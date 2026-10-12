@@ -4,7 +4,12 @@ async function fetchWithTimeout(url, options = {}, ms = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    return await fetchWithTimeout(url, { ...options, signal: controller.signal });
+    /* DEF-001 / K1: must call global fetch, not this function (recursion). */
+    const nativeFetch = globalThis.fetch;
+    if (typeof nativeFetch !== "function") {
+      throw new Error("fetch is not available in this runtime.");
+    }
+    return await nativeFetch(url, { ...options, signal: controller.signal });
   } catch (e) {
     if (e && (e.name === "AbortError" || e.code === "ABORT_ERR")) {
       throw new Error("TradeLocker request timed out.");

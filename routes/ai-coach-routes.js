@@ -46,8 +46,14 @@ function createAiCoachRouter({ db, auth }) {
 
       if (process.env.OPENAI_API_KEY) {
         try {
-          const r = await fetch("https://api.openai.com/v1/responses", {
+          /* K1: bound OpenAI wait time (DEF-006) */
+          const aiController = new AbortController();
+          const aiTimer = setTimeout(() => aiController.abort(), 20000);
+          let r;
+          try {
+            r = await fetch("https://api.openai.com/v1/responses", {
             method: "POST",
+            signal: aiController.signal,
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -67,13 +73,16 @@ function createAiCoachRouter({ db, auth }) {
               ],
             }),
           });
-          const j = await r.json();
-          const text = (j.output || [])
-            .flatMap((x) => x.content || [])
-            .map((x) => x.text || "")
-            .filter(Boolean)
-            .join("\n");
-          if (r.ok && text) return res.json({ answer: text, mode: "openai" });
+            const j = await r.json();
+            const text = (j.output || [])
+              .flatMap((x) => x.content || [])
+              .map((x) => x.text || "")
+              .filter(Boolean)
+              .join("\n");
+            if (r.ok && text) return res.json({ answer: text, mode: "openai" });
+          } finally {
+            clearTimeout(aiTimer);
+          }
         } catch (e) {
           console.error("AI provider fallback:", e.message);
         }
