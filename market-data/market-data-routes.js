@@ -1,4 +1,5 @@
 const express = require("express");
+const { requireAdmin } = require("../middleware/admin");
 
 const {
   normalizeSymbol,
@@ -232,9 +233,13 @@ function createMarketDataRouter({ db, auth }) {
     }
   });
 
+  // Shared candle writes are admin-only. Any authenticated user may read
+  // candles for charts/replay; only administrators may mutate the shared store.
+  // Client-supplied `source` is ignored — server stamps provenance.
   router.post(
     "/candles/import",
     auth,
+    requireAdmin,
     async (req, res) => {
       try {
         const candles = req.body?.candles;
@@ -258,9 +263,14 @@ function createMarketDataRouter({ db, auth }) {
           });
         }
 
+        const stamped = candles.map((c) => ({
+          ...(c && typeof c === "object" ? c : {}),
+          source: "admin_import"
+        }));
+
         const result = await insertCandles(
           db,
-          candles
+          stamped
         );
 
         res.status(201).json({

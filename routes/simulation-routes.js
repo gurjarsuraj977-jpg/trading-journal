@@ -1,13 +1,14 @@
 const express = require("express");
 const { buildTradeFilters } = require("../metrics/query-builder");
+const { simulateTradeOutcome } = require("../utils/simulate-outcome");
 
 /**
  * Strategy Simulator — response-only hypotheticals from live journal MFE/MAE.
  * Does NOT write results into trades. Does NOT affect live metrics.
  *
- * Also provides POST /api/backtests so Simulation Lab can persist a scenario
- * name after a successful run (table already exists in db/init.js).
+ * See utils/simulate-outcome.js for MAE/MFE convention and dual-hit policy.
  */
+
 function createSimulationRouter({ db, auth, n }) {
   const router = express.Router();
 
@@ -36,21 +37,20 @@ function createSimulationRouter({ db, auth, n }) {
         )
       ).rows;
 
-      const target = n(req.body.targetR, 2);
-      const stop = -Math.abs(n(req.body.stopR, 1));
+      const target = Math.abs(n(req.body.targetR, 2));
+      const stopAbs = Math.abs(n(req.body.stopR, 1));
       let pnlR = 0;
       let wins = 0;
       let losses = 0;
       let usable = 0;
+      let bothHits = 0;
 
       for (const x of rows) {
-        const mfe = n(x.mfe_r);
-        const mae = n(x.mae_r);
-        if (!mfe && !mae) continue;
+        const outcome = simulateTradeOutcome(x, target, stopAbs);
+        if (!outcome.usable) continue;
         usable++;
-        let rr = n(x.actual_r);
-        if (mfe >= target) rr = target;
-        else if (mae <= stop) rr = stop;
+        if (outcome.reason === "both_conservative_stop") bothHits++;
+        const rr = outcome.rr;
         wins += rr > 0 ? 1 : 0;
         losses += rr < 0 ? 1 : 0;
         pnlR += rr;
@@ -62,11 +62,13 @@ function createSimulationRouter({ db, auth, n }) {
         wins,
         losses,
         targetR: target,
-        stopR: stop,
+        stopR: -stopAbs,
         simulatedR: pnlR,
         winRate: usable ? (wins / usable) * 100 : 0,
         avgR: usable ? pnlR / usable : 0,
-        note: "Simulation is response-only and does not alter live journal metrics.",
+        bothHitsConservative: bothHits,
+        note:
+          "Simulation is response-only and does not alter live journal metrics. MFE/MAE are non-negative R magnitudes. When both target and stop extremes are met, the stop is assumed (conservative; intrabar order unknown).",
       });
     } catch (e) {
       console.error(e);
@@ -85,7 +87,7 @@ function createSimulationRouter({ db, auth, n }) {
       const name =
         String(req.body.name || "").trim() || "Untitled scenario";
       const symbol = String(req.body.symbol || "").trim() || null;
-      const targetR = n(req.body.targetR, 2);
+      const targetR = Math.abs(n(req.body.targetR, 2));
       const stopR = Math.abs(n(req.body.stopR, 1));
 
       const r = await db(
@@ -105,4 +107,4 @@ function createSimulationRouter({ db, auth, n }) {
   return router;
 }
 
-module.exports = { createSimulationRouter };
+module.exports = { createSimulationRouter, simulateTradeOutcome };

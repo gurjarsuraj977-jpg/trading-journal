@@ -2,95 +2,116 @@ $("#quickExport").onclick=()=>location.href='/api/export.csv';
 
 $('#importCsv').onclick=()=>$('#csvFile').click();
 
+/**
+ * RFC4180-aware CSV parser (Batch E).
+ * Handles quoted commas, escaped quotes, and embedded newlines.
+ */
 function parseCsv(text){
-  const lines=text.split(/\r?\n/).filter(x=>x.trim());
+  const src=String(text||"");
+  if(!src.trim())return[];
 
-  if(!lines.length)return[];
+  const rows=[];
+  let row=[];
+  let cur="";
+  let q=false;
 
-  const parse=line=>{
-    const out=[];
-    let cur='';
-    let q=false;
+  for(let i=0;i<src.length;i++){
+    const ch=src[i];
+    const next=src[i+1];
 
-    for(let i=0;i<line.length;i++){
-      const ch=line[i];
-
-      if(ch==='"'&&line[i+1]==='"'){
+    if(q){
+      if(ch==='"'&&next==='"'){
         cur+='"';
         i++;
         continue;
       }
-
       if(ch==='"'){
-        q=!q;
+        q=false;
         continue;
       }
-
-      if(ch===','&&!q){
-        out.push(cur.trim());
-        cur='';
-        continue;
-      }
-
       cur+=ch;
+      continue;
     }
 
-    out.push(cur.trim());
+    if(ch==='"'){
+      q=true;
+      continue;
+    }
+    if(ch===','){
+      row.push(cur);
+      cur="";
+      continue;
+    }
+    if(ch==='\r'){
+      continue;
+    }
+    if(ch==='\n'){
+      row.push(cur);
+      cur="";
+      if(row.some(c=>String(c).trim()!==""))rows.push(row);
+      row=[];
+      continue;
+    }
+    cur+=ch;
+  }
+  row.push(cur);
+  if(row.some(c=>String(c).trim()!==""))rows.push(row);
 
-    return out;
-  };
+  if(rows.length<2)return[];
 
-  const head=parse(lines[0]);
-
-  return lines.slice(1).map(line=>{
-    const a=parse(line);
+  const head=rows[0].map(h=>String(h||"").trim());
+  return rows.slice(1).map(cols=>{
     const o={};
-
     head.forEach((h,i)=>{
-      o[h]=a[i]??'';
+      o[h]=cols[i]??"";
     });
-
     return o;
-  }).filter(o=>Object.values(o).some(Boolean));
+  }).filter(o=>Object.values(o).some(v=>String(v||"").trim()!==""));
 }
 
 $('#csvFile').onchange=async e=>{
   const f=e.target.files[0];
-
   if(!f)return;
 
   try{
     const rows=parseCsv(await f.text());
+    if(!rows.length){
+      toast('No valid CSV rows found.',false);
+      e.target.value='';
+      return;
+    }
 
     const d=await api('/api/import',{
       method:'POST',
       body:JSON.stringify({rows})
     });
 
-    alert(`Imported ${d.imported} of ${d.received} rows.`);
+    const parts=[
+      `${d.imported||0} imported`,
+      `${d.skipped||0} skipped`,
+      `${d.duplicates||0} duplicates`
+    ];
+    if(d.truncated)parts.push(`${d.truncated} truncated (max rows)`);
+    toast(parts.join(' · ')+(d.errors&&d.errors.length?` · ${d.errors.length} error(s) shown`:''),!!d.imported);
 
-    await loadAccounts();
-    await dashboard();
-
+    if(typeof trades==='function')trades();
+    if(typeof dashboard==='function')dashboard();
   }catch(err){
-    showError(err.message);
-  }finally{
-    e.target.value='';
+    toast(err.message||'Import failed',false);
   }
+
+  e.target.value='';
 };
 
-$("#export")?.addEventListener(
-  'click',
+$("#exportCsv")&&($("#exportCsv").onclick=
   ()=>location.href='/api/export.csv'
 );
 
-function fileData(f){
+function readFile(f){
   return new Promise((r,j)=>{
     const x=new FileReader();
-
     x.onload=()=>r(x.result);
     x.onerror=j;
-
-    x.readAsDataURL(f);
+    x.readAsText(f);
   });
 }

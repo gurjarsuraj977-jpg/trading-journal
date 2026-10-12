@@ -1317,3 +1317,14 @@ html[data-theme="dark"] .bcard{
 .insight-row.insight-row-compact{
   grid-template-columns:1fr auto;
 }
+
+
+/* Batch I — auth mobile keyboard */
+#auth input{
+  font-size:16px;
+}
+#auth input[type="email"],
+#auth input[type="password"],
+#auth input#an{
+  text-transform:none;
+}

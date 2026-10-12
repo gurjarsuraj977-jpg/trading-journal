@@ -1,4 +1,5 @@
 const express = require("express");
+const { requireAdmin } = require("../middleware/admin");
 
 const {
   fetchTimeSeries,
@@ -15,9 +16,9 @@ function createMarketDataProviderRouter({ db, auth }) {
   const router = express.Router();
 
   // ---------------------------------------------------------
-  // PROVIDER STATUS
+  // PROVIDER STATUS (admin-only: hits external provider quota)
   // ---------------------------------------------------------
-  router.get("/provider/status", auth, async (req, res) => {
+  router.get("/provider/status", auth, requireAdmin, async (req, res) => {
     try {
       const result = await fetchLatestCandles({
         symbol: "XAUUSD",
@@ -45,9 +46,9 @@ function createMarketDataProviderRouter({ db, auth }) {
   });
 
   // ---------------------------------------------------------
-  // LATEST DATA SYNC
+  // LATEST DATA SYNC (admin-only: writes shared market_candles)
   // ---------------------------------------------------------
-  router.post("/provider/sync", auth, async (req, res) => {
+  router.post("/provider/sync", auth, requireAdmin, async (req, res) => {
     try {
       const symbol = normalizeSymbol(req.body?.symbol);
       const timeframe = normalizeTimeframe(req.body?.timeframe);
@@ -105,9 +106,9 @@ function createMarketDataProviderRouter({ db, auth }) {
   });
 
   // ---------------------------------------------------------
-  // HISTORICAL DATA IMPORT
+  // HISTORICAL DATA IMPORT (admin-only: writes shared market_candles)
   // ---------------------------------------------------------
-  router.post("/provider/history", auth, async (req, res) => {
+  router.post("/provider/history", auth, requireAdmin, async (req, res) => {
     try {
       const symbol = normalizeSymbol(req.body?.symbol);
       const timeframe = normalizeTimeframe(req.body?.timeframe);

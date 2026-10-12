@@ -37,6 +37,15 @@ $("#switch").onclick=()=>{
 
   $("#an").required=register;
 
+  /* Batch I — autocomplete hints for login vs registration */
+  const pw=$("#ap");
+  if(pw){
+    pw.setAttribute(
+      'autocomplete',
+      register?'new-password':'current-password'
+    );
+  }
+
   if(!register)
     $("#an").value='';
 };

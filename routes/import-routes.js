@@ -134,9 +134,18 @@ function createImportRouter({ db, auth, n }) {
           }
 
           const tradeDateRaw = pick(b, "trade_date", "tradeDate", "date", "Date");
-          let tradeDate = tradeDateRaw ? new Date(tradeDateRaw) : new Date();
-          if (Number.isNaN(tradeDate.getTime())) {
+          let tradeDate;
+          if (tradeDateRaw === undefined || tradeDateRaw === null || String(tradeDateRaw).trim() === "") {
             tradeDate = new Date();
+          } else {
+            tradeDate = new Date(tradeDateRaw);
+            if (Number.isNaN(tradeDate.getTime())) {
+              skipped++;
+              if (errors.length < 20) {
+                errors.push({ row: rowNum, error: "Invalid trade date." });
+              }
+              continue;
+            }
           }
           if (tradeDate.getTime() > Date.now() + 86400000) {
             skipped++;

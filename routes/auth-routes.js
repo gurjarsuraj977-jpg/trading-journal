@@ -42,22 +42,29 @@ async function maybeBootstrapAdmin(db, userRow) {
 }
 
 /**
- * Lightweight in-memory rate limit for auth endpoints.
- * Protects register/login against credential stuffing without
- * external dependencies. Resets on process restart (acceptable
- * for single-instance deployments; multi-instance needs Redis later).
+ * Lightweight in-memory rate limit for login/register only.
+ * Protects against credential stuffing without external dependencies.
+ * Resets on process restart (acceptable for single-instance deployments;
+ * multi-instance needs Redis later).
+ *
+ * Client IP resolution does NOT trust arbitrary X-Forwarded-For by default.
+ * When Express `trust proxy` is enabled (e.g. TRUST_PROXY=1 on Render),
+ * req.ip is populated from the trusted hop chain. Spoofed leftmost XFF
+ * values cannot bypass the limit.
  */
 const authAttempts = new Map();
 const AUTH_WINDOW_MS = 15 * 60 * 1000;
-const AUTH_MAX = 30; // per IP per window
+const AUTH_MAX = 30; // per client key per window
 
 function clientKey(req) {
-  return (
-    req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ||
-    req.ip ||
+  // Prefer Express-resolved req.ip (honors trust proxy when configured).
+  // Fall back to the direct socket address. Never prefer the leftmost
+  // X-Forwarded-For entry, which a client can set arbitrarily.
+  const ip =
+    (typeof req.ip === "string" && req.ip) ||
     req.socket?.remoteAddress ||
-    "unknown"
-  );
+    "unknown";
+  return String(ip);
 }
 
 function rateLimitAuth(req, res, next) {
@@ -85,9 +92,10 @@ function rateLimitAuth(req, res, next) {
 
 function createAuthRouter({ db, bcrypt, token, setCookie, auth }) {
   const router = express.Router();
-  router.use(rateLimitAuth);
+  // Rate-limit only credential endpoints. /me and /logout stay unrestricted
+  // so legitimate sessions are not blocked by shared-IP login attempts.
 
-  router.post("/register", async (req, res) => {
+  router.post("/register", rateLimitAuth, async (req, res) => {
     try {
       const name = String(req.body.name || "").trim();
       const email = String(req.body.email || "").trim().toLowerCase();
@@ -137,7 +145,7 @@ function createAuthRouter({ db, bcrypt, token, setCookie, auth }) {
     }
   });
 
-  router.post("/login", async (req, res) => {
+  router.post("/login", rateLimitAuth, async (req, res) => {
     try {
       const email = String(req.body.email || "").trim().toLowerCase();
       const pw = String(req.body.password || "");

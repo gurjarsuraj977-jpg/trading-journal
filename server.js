@@ -41,6 +41,22 @@ if(process.env.NODE_ENV==="production"&&!process.env.JWT_SECRET){
 }
 const app=express(),PORT=process.env.PORT||10000,SECRET=process.env.JWT_SECRET||"dev-only-change-me";
 /*
+ * Proxy trust (Batch B / S-03).
+ * Render terminates TLS and forwards via a single proxy hop. Set
+ * TRUST_PROXY=1 in the Render environment so Express derives req.ip
+ * from the trusted X-Forwarded-For chain. Do not enable multi-hop
+ * trust blindly — only the immediate reverse proxy is trusted.
+ * When unset, req.ip remains the direct socket address (safe default).
+ */
+{
+  const tp=String(process.env.TRUST_PROXY||"").trim();
+  if(tp==="1"||tp.toLowerCase()==="true"){
+    app.set("trust proxy",1);
+  }else if(tp&&/^\d+$/.test(tp)){
+    app.set("trust proxy",Number(tp));
+  }
+}
+/*
  * Baseline security headers (no external helmet dependency).
  * Does not alter CORS for same-origin cookie auth.
  */
@@ -311,6 +327,37 @@ const manual=await calculateManualTrade({
       }
     }
 
+    /* Batch D — POST playbook ownership, screenshot size, trade date */
+    let postPlaybookId=b.playbookId?Number(b.playbookId):null;
+    if(postPlaybookId!==null){
+      if(!Number.isInteger(postPlaybookId)||postPlaybookId<=0){
+        return res.status(400).json({error:"Invalid playbook ID."});
+      }
+      const pb=await db(
+        `SELECT id FROM playbooks WHERE id=$1 AND user_id=$2`,
+        [postPlaybookId,req.user.id]
+      );
+      if(!pb.rowCount){
+        return res.status(400).json({
+          error:"Playbook not found or not owned by this account."
+        });
+      }
+    }
+    const SCREENSHOT_MAX_POST=4500000;
+    const postScreenshot=String(b.screenshotData||"");
+    if(postScreenshot.length>SCREENSHOT_MAX_POST){
+      return res.status(400).json({
+        error:"Screenshot is too large. Maximum size is about 3.3 MB of base64 data."
+      });
+    }
+    let postTradeDate=new Date();
+    if(b.tradeDate){
+      postTradeDate=new Date(b.tradeDate);
+      if(Number.isNaN(postTradeDate.getTime())){
+        return res.status(400).json({error:"Invalid trade date."});
+      }
+    }
+
     const r=await db(`
       INSERT INTO trades(
         user_id,
@@ -378,7 +425,7 @@ VALUES(
   maxFavorable,
   maxAdverse,
   Math.max(0,Math.min(100,Math.round(n(b.ruleScore)))),
-  b.playbookId ? Number(b.playbookId) : null,
+  postPlaybookId,
   b.strategy || "",
   b.session || "",
   b.setup || "",
@@ -389,9 +436,9 @@ VALUES(
   b.mistakes || "",
   Math.max(0,Math.min(100,Math.round(n(b.confidence)))),
   b.marketCondition || "",
-  String(b.screenshotData || "").slice(0,4500000),
+  postScreenshot,
   b.notes || "",
-  b.tradeDate ? new Date(b.tradeDate) : new Date()
+  postTradeDate
 ]);
 
     res.status(201).json({
@@ -477,9 +524,24 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
           optNum("maxFavorablePrice","max_favorable_price"),
           optNum("maxAdversePrice","max_adverse_price"),
           b.ruleScore!==undefined?clamp100(b.ruleScore):current.rule_score,
-          b.playbookId!==undefined
-            ?(b.playbookId?Number(b.playbookId):null)
-            :current.playbook_id,
+          await (async()=>{
+            if(b.playbookId===undefined)return current.playbook_id;
+            if(!b.playbookId)return null;
+            const pid=Number(b.playbookId);
+            if(!Number.isInteger(pid)||pid<=0){
+              const err=new Error("Invalid playbook ID.");
+              err.status=400;throw err;
+            }
+            const pb=await db(
+              `SELECT id FROM playbooks WHERE id=$1 AND user_id=$2`,
+              [pid,req.user.id]
+            );
+            if(!pb.rowCount){
+              const err=new Error("Playbook not found or not owned by this account.");
+              err.status=400;throw err;
+            }
+            return pid;
+          })(),
           text("strategy","strategy"),
           text("session","session"),
           text("setup","setup"),
@@ -490,9 +552,15 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
           text("mistakes","mistakes"),
           b.confidence!==undefined?clamp100(b.confidence):current.confidence,
           text("marketCondition","market_condition"),
-          b.screenshotData!==undefined
-            ?String(b.screenshotData||"").slice(0,4500000)
-            :(current.screenshot_data||""),
+          (()=>{
+            if(b.screenshotData===undefined)return current.screenshot_data||"";
+            const raw=String(b.screenshotData||"");
+            if(raw.length>4500000){
+              const err=new Error("Screenshot is too large. Maximum size is about 3.3 MB of base64 data.");
+              err.status=400;throw err;
+            }
+            return raw;
+          })(),
           text("notes","notes"),
           id,
           req.user.id
@@ -629,32 +697,66 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       ac.rows[0].currency||"USD"
     ).trim().toUpperCase();
 
-    const manual=await calculateManualTrade({
-      db,
-      getRate:getCurrencyConversionRate,
-      symbol:s,
-      direction:d,
-      entry,
-      stopLoss,
-      takeProfit,
-      exitPrice,
-      quantity,
-      accountBalance:n(
-        ac.rows[0].starting_balance,
-        0
-      ),
-      accountCurrency
-    });
+    /*
+     * Batch D / D-02 — historical integrity.
+     * Recalculate only when a financial input actually changed.
+     * Notes/screenshot/psychology-only edits must not re-run currency
+     * conversion and rewrite stored P&L with today's rate.
+     */
+    const sameNum=(a,b)=>{
+      if(a===null||a===undefined||a==="")return b===null||b===undefined||b==="";
+      if(b===null||b===undefined||b==="")return false;
+      return Number(a)===Number(b);
+    };
+    const financialUnchanged=
+      s===storedSymbol&&
+      d===String(current.direction||"").toUpperCase()&&
+      acct===String(current.account||"").trim()&&
+      sameNum(entry,current.entry)&&
+      sameNum(stopLoss,current.stop_loss)&&
+      sameNum(takeProfit,current.take_profit)&&
+      sameNum(exitPrice,current.exit_price)&&
+      sameNum(quantity,current.quantity);
 
-    if(!manual.ok){
-      return res.status(manual.status).json({
-        error:manual.error,
-        code:manual.code,
-        calculation:manual.calculation
+    let calculated;
+    if(financialUnchanged){
+      calculated={
+        riskAmount:Number(current.risk_amount)||0,
+        riskPercent:Number(current.risk_percent)||0,
+        riskLevel:current.risk_level||"unknown",
+        profitLoss:Number(current.profit_loss)||0,
+        plannedRr:current.planned_rr!=null?Number(current.planned_rr):null,
+        actualR:current.actual_r!=null?Number(current.actual_r):null,
+        entrySlDistance:null
+      };
+    }else{
+      const manual=await calculateManualTrade({
+        db,
+        getRate:getCurrencyConversionRate,
+        symbol:s,
+        direction:d,
+        entry,
+        stopLoss,
+        takeProfit,
+        exitPrice,
+        quantity,
+        accountBalance:n(
+          ac.rows[0].starting_balance,
+          0
+        ),
+        accountCurrency
       });
-    }
 
-    const calculated=manual.calculation;
+      if(!manual.ok){
+        return res.status(manual.status).json({
+          error:manual.error,
+          code:manual.code,
+          calculation:manual.calculation
+        });
+      }
+
+      calculated=manual.calculation;
+    }
 
     const maxFavorable=
       b.maxFavorablePrice===""||
@@ -692,6 +794,7 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
      * source of truth for the R-multiple, not the raw stored R.
      */
     if(
+      !financialUnchanged&&
       calculated.riskAmount>0&&
       calculated.entrySlDistance>0
     ){
@@ -742,10 +845,26 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
       )
     );
 
-    const playbookId=
+    let playbookId=
       b.playbookId!==undefined
         ? (b.playbookId ? Number(b.playbookId) : null)
         : current.playbook_id;
+
+    /* Batch D / S-05 — playbook ownership: must belong to this user */
+    if(playbookId!==null&&playbookId!==undefined){
+      if(!Number.isInteger(playbookId)||playbookId<=0){
+        return res.status(400).json({error:"Invalid playbook ID."});
+      }
+      const pb=await db(
+        `SELECT id FROM playbooks WHERE id=$1 AND user_id=$2`,
+        [playbookId,req.user.id]
+      );
+      if(!pb.rowCount){
+        return res.status(400).json({
+          error:"Playbook not found or not owned by this account."
+        });
+      }
+    }
 
     const strategy=
       b.strategy!==undefined ? (b.strategy||"") : (current.strategy||"");
@@ -784,18 +903,39 @@ app.put("/api/trades/:id",auth,async(req,res)=>{
         ? (b.marketCondition||"")
         : (current.market_condition||"");
 
-    const screenshotData=
-      b.screenshotData!==undefined
-        ? String(b.screenshotData||"").slice(0,4500000)
-        : (current.screenshot_data||"");
+    /* Batch D / D-03 — reject oversized/truncated screenshots instead of silent slice */
+    const SCREENSHOT_MAX=4500000;
+    let screenshotData=current.screenshot_data||"";
+    if(b.screenshotData!==undefined){
+      const raw=String(b.screenshotData||"");
+      if(raw.length>SCREENSHOT_MAX){
+        return res.status(400).json({
+          error:"Screenshot is too large. Maximum size is about 3.3 MB of base64 data."
+        });
+      }
+      if(raw&&!/^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(raw)&&!/^[A-Za-z0-9+/=\s]+$/.test(raw.slice(0,64))){
+        // Allow empty clear; otherwise require data-URL image or bare base64 prefix
+        if(raw.length>0&&!raw.startsWith("data:image/")){
+          return res.status(400).json({
+            error:"Screenshot must be a valid image data URL (png, jpeg, gif, or webp)."
+          });
+        }
+      }
+      screenshotData=raw;
+    }
 
     const notes=
       b.notes!==undefined ? (b.notes||"") : (current.notes||"");
 
-    const tradeDate=
-      b.tradeDate!==undefined && b.tradeDate
-        ? new Date(b.tradeDate)
-        : current.trade_date;
+    /* Batch D / D-04 — reject invalid trade dates; never coerce to now */
+    let tradeDate=current.trade_date;
+    if(b.tradeDate!==undefined&&b.tradeDate!==null&&b.tradeDate!==""){
+      const parsed=new Date(b.tradeDate);
+      if(Number.isNaN(parsed.getTime())){
+        return res.status(400).json({error:"Invalid trade date."});
+      }
+      tradeDate=parsed;
+    }
 
 await db(
   `
@@ -883,6 +1023,9 @@ await db(
     });
 
   }catch(e){
+    if(e&&e.status===400){
+      return res.status(400).json({error:e.message||"Invalid request."});
+    }
     console.error("Trade update error:",e);
     res.status(500).json({
       error:"Could not update trade."
@@ -905,5 +1048,30 @@ app.use("/api/ai",createAiCoachRouter({db,auth}));
 app.use("/api/import",createImportRouter({db,auth,n}));
 app.use("/api",createExportRouter({db,auth,fields}));
 app.use("/api/admin",createAdminRouter({db,auth}));
+/*
+ * Batch C — API 404 + JSON error handling (R-03, R-07).
+ * Unknown /api/* paths return JSON 404 instead of the SPA HTML shell.
+ * Frontend SPA catch-all remains for non-API routes.
+ */
+app.use("/api",(req,res)=>{
+  res.status(404).json({error:"Not found."});
+});
+app.use((err,req,res,next)=>{
+  if(!err)return next();
+  const isApi=String(req.originalUrl||req.url||"").startsWith("/api");
+  if(err.type==="entity.parse.failed"||err instanceof SyntaxError){
+    if(isApi)return res.status(400).json({error:"Invalid JSON body."});
+  }
+  if(err.type==="entity.too.large"||err.status===413){
+    if(isApi)return res.status(413).json({error:"Request body too large."});
+  }
+  console.error("Unhandled error:",err&&err.message?err.message:err);
+  if(isApi){
+    return res.status(err.status&&Number.isInteger(err.status)?err.status:500).json({
+      error:"Something went wrong."
+    });
+  }
+  next(err);
+});
 app.get("/{*splat}",(req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
 init({db}).then(()=>app.listen(PORT,"0.0.0.0",()=>console.log("GhostTrader V2 running on "+PORT))).catch(e=>{console.error(e);process.exit(1)});
