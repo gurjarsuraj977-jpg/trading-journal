@@ -10,6 +10,7 @@ const {
   expectancy,
   profitFactor,
   equityStats,
+  groupStats,
 } = require("./formulas");
 
 async function getMetrics(db, opts) {
@@ -178,30 +179,64 @@ async function getMetrics(db, opts) {
   };
 }
 
+/*
+ * Shared per-group aggregates. Same classification as getMetrics():
+ * win = profit_loss > 0, loss = profit_loss < 0, everything else breakeven;
+ * R sample = actual_r IS NOT NULL (identical to the summary query above).
+ * Ratios are derived in JS by formulas.groupStats so every surface divides
+ * (and reports "unavailable") the same way.
+ */
+const GROUP_AGG = `COUNT(*)::int AS trades,
+              COALESCE(SUM(profit_loss),0)::numeric AS pnl,
+              COUNT(*) FILTER (WHERE profit_loss > 0)::int AS wins,
+              COUNT(*) FILTER (WHERE profit_loss < 0)::int AS losses,
+              COALESCE(SUM(profit_loss) FILTER (WHERE profit_loss > 0),0)::numeric AS gross_profit,
+              ABS(COALESCE(SUM(profit_loss) FILTER (WHERE profit_loss < 0),0))::numeric AS gross_loss,
+              COUNT(actual_r) FILTER (WHERE actual_r IS NOT NULL)::int AS r_sample_count,
+              SUM(actual_r) FILTER (WHERE actual_r IS NOT NULL)::numeric AS total_r`;
+
+/** name/trades/pnl keep their original shape; stats fields are additive. */
+function withGroupStats(rows) {
+  return rows.map((r) => ({
+    name: r.name,
+    trades: r.trades,
+    pnl: r.pnl,
+    ...(() => {
+      const g = groupStats({
+        trades: r.trades,
+        wins: r.wins,
+        losses: r.losses,
+        grossProfit: r.gross_profit,
+        grossLoss: r.gross_loss,
+        rSampleCount: r.r_sample_count,
+        totalR: r.total_r,
+      });
+      const { trades: _t, ...rest } = g;
+      return rest;
+    })(),
+  }));
+}
+
 async function loadBreakdowns(db, where, params) {
   const make = (sql) => db(sql, params);
   const [sym, strat, sess, dir, days, setup] = await Promise.all([
     make(
-      `SELECT symbol AS name, COUNT(*)::int AS trades,
-              COALESCE(SUM(profit_loss),0)::numeric AS pnl
+      `SELECT symbol AS name, ${GROUP_AGG}
        FROM trades WHERE ${where}
        GROUP BY symbol ORDER BY pnl DESC`
     ),
     make(
-      `SELECT COALESCE(strategy,'Unspecified') AS name, COUNT(*)::int AS trades,
-              COALESCE(SUM(profit_loss),0)::numeric AS pnl
+      `SELECT COALESCE(strategy,'Unspecified') AS name, ${GROUP_AGG}
        FROM trades WHERE ${where}
        GROUP BY strategy ORDER BY pnl DESC`
     ),
     make(
-      `SELECT COALESCE(session,'Unspecified') AS name, COUNT(*)::int AS trades,
-              COALESCE(SUM(profit_loss),0)::numeric AS pnl
+      `SELECT COALESCE(session,'Unspecified') AS name, ${GROUP_AGG}
        FROM trades WHERE ${where}
        GROUP BY session ORDER BY pnl DESC`
     ),
     make(
-      `SELECT direction AS name, COUNT(*)::int AS trades,
-              COALESCE(SUM(profit_loss),0)::numeric AS pnl
+      `SELECT direction AS name, ${GROUP_AGG}
        FROM trades WHERE ${where}
        GROUP BY direction ORDER BY direction`
     ),
@@ -214,20 +249,19 @@ async function loadBreakdowns(db, where, params) {
        ORDER BY day`
     ),
     make(
-      `SELECT COALESCE(setup,'Unspecified') AS name, COUNT(*)::int AS trades,
-              COALESCE(SUM(profit_loss),0)::numeric AS pnl
+      `SELECT COALESCE(setup,'Unspecified') AS name, ${GROUP_AGG}
        FROM trades WHERE ${where}
        GROUP BY setup ORDER BY pnl DESC`
     ),
   ]);
 
   return {
-    bySymbol: sym.rows,
-    byStrategy: strat.rows,
-    bySession: sess.rows,
-    byDirection: dir.rows,
+    bySymbol: withGroupStats(sym.rows),
+    byStrategy: withGroupStats(strat.rows),
+    bySession: withGroupStats(sess.rows),
+    byDirection: withGroupStats(dir.rows),
     byDay: days.rows,
-    bySetup: setup.rows,
+    bySetup: withGroupStats(setup.rows),
   };
 }
 

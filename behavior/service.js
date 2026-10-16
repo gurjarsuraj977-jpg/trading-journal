@@ -250,8 +250,28 @@ async function getBehaviorPatterns(db, opts) {
   return derivePatterns(signals);
 }
 
-async function getBehaviorSummary(_db, _opts) {
-  throw new Error("getBehaviorSummary not implemented yet");
+/**
+ * Combined behavioral view under one filter set. Pure composition of the
+ * existing services - no new business logic:
+ *   { sampleSize, baseline, signals, patterns }
+ * `baseline` = getBehaviorBaseline, `signals` = getBehaviorSignals,
+ * `patterns` = derivePatterns(signals) (same as getBehaviorPatterns).
+ * Accepts the same opts (userId required, accountId/accountName/from/to/tz/
+ * source); scoped to that user only. With no matching trades, signals are
+ * emptySignals() and patterns is [].
+ * Nothing in the app calls this yet; it replaces a stub that always threw.
+ */
+async function getBehaviorSummary(db, opts) {
+  const [baseline, signals] = await Promise.all([
+    getBehaviorBaseline(db, opts),
+    getBehaviorSignals(db, opts),
+  ]);
+  return {
+    sampleSize: baseline.sampleSize,
+    baseline,
+    signals,
+    patterns: derivePatterns(signals),
+  };
 }
 
 module.exports = {

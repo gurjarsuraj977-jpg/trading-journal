@@ -244,7 +244,13 @@ try{
  CREATE TABLE IF NOT EXISTS replay_sessions(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(120) NOT NULL,symbol VARCHAR(30),starting_balance NUMERIC(20,2) DEFAULT 10000,status VARCHAR(30) DEFAULT 'draft',created_at TIMESTAMPTZ DEFAULT NOW());
  CREATE TABLE IF NOT EXISTS replay_trades(id SERIAL PRIMARY KEY,session_id INTEGER REFERENCES replay_sessions(id) ON DELETE CASCADE,symbol VARCHAR(30),direction VARCHAR(10),entry NUMERIC(20,8),stop_loss NUMERIC(20,8),take_profit NUMERIC(20,8),exit_price NUMERIC(20,8),quantity NUMERIC(20,8) DEFAULT 1,profit_loss NUMERIC(20,2) DEFAULT 0,trade_date TIMESTAMPTZ DEFAULT NOW(),notes TEXT);
  CREATE TABLE IF NOT EXISTS backtests(id SERIAL PRIMARY KEY,user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,name VARCHAR(120) NOT NULL,symbol VARCHAR(30),target_r NUMERIC(10,4) DEFAULT 2,stop_r NUMERIC(10,4) DEFAULT 1,created_at TIMESTAMPTZ DEFAULT NOW());`);
- await db(`INSERT INTO accounts(user_id,name) SELECT id,'Main Account' FROM users u WHERE NOT EXISTS(SELECT 1 FROM accounts a WHERE a.user_id=u.id AND a.name='Main Account')`);
+ /*
+  * Phase 1: legacy backfill only. Give a default 'Main Account' to users that
+  * have NO account at all. Previously this ran for every user lacking an
+  * account *named* 'Main Account', so on every boot/deploy it re-created an
+  * empty 'Main Account' for anyone who had renamed or replaced it.
+  */
+ await db(`INSERT INTO accounts(user_id,name) SELECT id,'Main Account' FROM users u WHERE NOT EXISTS(SELECT 1 FROM accounts a WHERE a.user_id=u.id)`);
  await db(`
   CREATE TABLE IF NOT EXISTS tradelocker_connections (
     id SERIAL PRIMARY KEY,
