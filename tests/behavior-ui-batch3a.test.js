@@ -319,9 +319,10 @@ test("8. Frontend ranking, filtering and slicing unchanged", () => {
   assert.ok(body.includes(".filter(x=>x.pnl<0)"));
   assert.strictEqual((body.match(/\.slice\(0,6\)/g) || []).length, 2);
   assert.ok(body.includes("'/api/premium?'+premiumQuery()"));
-  /* insightRow formatting unchanged */
-  assert.ok(JS.includes("Number(x.winRate||0).toFixed(1)}% win rate"));
-  assert.ok(JS.includes("Number(x.avgR||0).toFixed(2)}R avg"));
+  /* insightRow formatting unchanged for available values (Phase 1: unavailable
+     values now render as an em dash instead of a fake 0 - see phase1 tests) */
+  assert.ok(JS.includes(".toFixed(1)}% win rate"));
+  assert.ok(JS.includes(".toFixed(2)}R avg"));
 });
 
 test("8b. Backend still emits legacy EDGE/LEAK payload (presentation-only shim)", () => {

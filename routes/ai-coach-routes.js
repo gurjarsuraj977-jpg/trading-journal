@@ -23,11 +23,15 @@ function createAiCoachRouter({ db, auth }) {
       );
       const e = em.rows[0] || {};
 
-      let local = `You have ${m.tradeCount} recorded trades, ${m.pnl.toFixed(2)} net P&L, ${m.winRate.toFixed(1)}% win rate (${m.wins}W / ${m.losses}L / ${m.breakeven}BE), ${m.avgR.toFixed(2)}R average R, ${m.avgRiskPercent.toFixed(2)}% average risk, ${Number(e.confidence || 0).toFixed(0)} average confidence, ${Number(e.mfe || 0).toFixed(2)}R average MFE and ${Number(e.mae || 0).toFixed(2)}R average MAE. `;
+      /* avgR is null when no trade has a valid R value (e.g. a new user with
+         no trades): never call .toFixed on it. */
+      const avgRText =
+        m.avgR === null ? "average R unavailable (no R data)" : `${m.avgR.toFixed(2)}R average R`;
+      let local = `You have ${m.tradeCount} recorded trades, ${m.pnl.toFixed(2)} net P&L, ${m.winRate.toFixed(1)}% win rate (${m.wins}W / ${m.losses}L / ${m.breakeven}BE), ${avgRText}, ${m.avgRiskPercent.toFixed(2)}% average risk, ${Number(e.confidence || 0).toFixed(0)} average confidence, ${Number(e.mfe || 0).toFixed(2)}R average MFE and ${Number(e.mae || 0).toFixed(2)}R average MAE. `;
       if (m.avgRiskPercent > 2)
         local +=
           "Your recorded risk is elevated; consider enforcing a hard risk cap. ";
-      if (m.avgR < 0)
+      if (m.avgR !== null && m.avgR < 0)
         local +=
           "Your average R is negative; prioritize setup quality and review losing clusters. ";
       if (Number(e.confidence || 0) < 50)
@@ -35,6 +39,7 @@ function createAiCoachRouter({ db, auth }) {
           "Confidence is low on average; compare confidence bands before changing strategy. ";
       if (
         Number(e.mfe || 0) > 0 &&
+        m.avgR !== null &&
         m.avgR > 0 &&
         m.avgR / Number(e.mfe) < 0.5
       )

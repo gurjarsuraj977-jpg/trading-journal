@@ -373,8 +373,24 @@ const stubs = {
   bcryptjs: {},
   jsonwebtoken: { sign: () => "t", verify: () => ({}) },
   dotenv: { config: () => {} },
-  pg: { Pool: class { query(q, p) { return dbState.handler(q, p); } } }
+  /* DEF-002 / K2: production pool.js calls pool.on("error", ...).
+   * A stub Pool must expose on() or require("../server.js") throws. */
+  pg: {
+    Pool: class {
+      constructor() {}
+      on() {
+        return this;
+      }
+      query(q, p) {
+        return dbState.handler(q, p);
+      }
+      end() {
+        return Promise.resolve();
+      }
+    }
+  }
 };
+
 
 /* Deterministic FX (the real implementation calls Twelve Data over the
    network, unavailable here). Patched before server.js destructures it. */

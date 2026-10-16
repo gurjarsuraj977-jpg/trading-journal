@@ -336,10 +336,24 @@ test("8. insightRow() is unchanged and still feeds the Psychology list", async (
   const fn = JS.slice(JS.indexOf("function insightRow"), JS.indexOf("function legacyGroupRow"));
   /* original expressions are still present (regression guard — NOT an endorsement;
      the known Psychology renderer defects are recorded for a separate batch) */
-  assert.ok(fn.includes("Number(x.winRate||0).toFixed(1)}% win rate"));
-  assert.ok(fn.includes("Number(x.avgR||0).toFixed(2)}R avg"));
-  assert.ok(fn.includes("Number.isFinite(Number(x.profitFactor))"));
+  /* Phase 1: formatting of AVAILABLE values is unchanged ... */
+  assert.ok(fn.includes(".toFixed(1)}% win rate"));
+  assert.ok(fn.includes(".toFixed(2)}R avg"));
   assert.ok(JS.includes("psych.map(insightRow).join('')"));
+  {
+    const { sandbox: sb } = makeSandbox(FIXTURE);
+    const ok = textOf(sb.insightRow({ name: "Calm", trades: 10, pnl: 50, winRate: 60, avgR: 0.4, profitFactor: 1.5 }));
+    assert.ok(ok.includes("10 trades") && ok.includes("60.0% win rate") && ok.includes("0.40R avg") && ok.includes("PF 1.50"), ok);
+    /* ... and UNAVAILABLE values are never shown as fake 0 / fake infinity */
+    const na = textOf(sb.insightRow({ name: "X", trades: 4, pnl: 0, winRate: null, avgR: null, profitFactor: null }));
+    assert.ok(!/0\.0%|0\.00R|PF 0\.00|∞/.test(na), na);
+    assert.ok(na.includes("win rate —") && na.includes("avg R —") && na.includes("PF —"), na);
+    const inf = textOf(sb.insightRow({ name: "Y", trades: 4, pnl: 9, winRate: 100, avgR: 1, profitFactor: null, profitFactorInfinite: true }));
+    assert.ok(inf.includes("PF ∞"), inf);
+    /* legacy payload without the field no longer fakes an infinity */
+    const missing = textOf(sb.insightRow({ name: "Z", trades: 4, pnl: 9, winRate: 50 }));
+    assert.ok(missing.includes("PF —") && !missing.includes("∞"), missing);
+  }
 
   const { sandbox, els } = makeSandbox(FIXTURE);
   await sandbox.insights();
@@ -393,8 +407,10 @@ test("10. reports() and /api/premium usage unchanged; Reports ignores edge data"
   }
 });
 
-test("10b. Backend contract untouched (placeholders still emitted, so frontend must not render them)", () => {
-  assert.ok(/winRate:\s*0,\s*profitFactor:\s*0,\s*avgR:\s*0/.test(PREMIUM));
+test("10b. Backend no longer emits hardcoded placeholder stats; thresholds and coach types intact", () => {
+  /* Phase 1: the fixed `winRate: 0, profitFactor: 0, avgR: 0` literals are gone */
+  assert.ok(!/winRate:\s*0,\s*profitFactor:\s*0,\s*avgR:\s*0/.test(PREMIUM));
+  assert.ok(!/(winRate|profitFactor|avgR):\s*0\s*,/.test(PREMIUM));
   assert.ok(PREMIUM.includes("Number(x.trades) >= 3"));
   assert.ok(PREMIUM.includes('type: "EDGE"') && PREMIUM.includes('type: "LEAK"'));
 });

@@ -1,6 +1,7 @@
 const express = require("express");
 const { getMetrics } = require("../metrics/service");
 const { buildTradeFilters } = require("../metrics/query-builder");
+const { summarizeTradeRows } = require("../metrics/formulas");
 
 /**
  * Reports / Insights — summary metrics via Unified Metrics Service.
@@ -70,6 +71,15 @@ function createPremiumRouter({ db, auth, fields }) {
         includeCurve: true,
       });
 
+      /*
+       * Group stats come from the Unified Metrics service (breakdowns) or
+       * from formulas.summarizeTradeRows (in-memory groups) - never
+       * hardcoded. Unavailable values are null, not 0:
+       *   winRate null          -> no winning/losing trade in the group
+       *   profitFactor null     -> no gross profit and no gross loss;
+       *                            with profitFactorInfinite=true -> no losses
+       *   avgR null             -> no valid R sample
+       */
       const edge = (arr) =>
         (arr || [])
           .filter((x) => Number(x.trades) >= 3)
@@ -77,9 +87,13 @@ function createPremiumRouter({ db, auth, fields }) {
             name: x.name,
             trades: Number(x.trades),
             pnl: Number(x.pnl),
-            winRate: 0,
-            profitFactor: 0,
-            avgR: 0,
+            wins: x.wins,
+            losses: x.losses,
+            breakeven: x.breakeven,
+            winRate: x.winRate === undefined ? null : x.winRate,
+            profitFactor: x.profitFactor === undefined ? null : x.profitFactor,
+            profitFactorInfinite: !!x.profitFactorInfinite,
+            avgR: x.avgR === undefined ? null : x.avgR,
           }))
           .sort((a, b) => b.pnl - a.pnl);
 
@@ -98,19 +112,25 @@ function createPremiumRouter({ db, auth, fields }) {
         tz,
       });
       const rowR = await db(
-        `SELECT id, symbol, profit_loss, trade_date, risk_percent,
-                stop_loss, take_profit, confidence, mistakes, actual_r,
-                emotion_before, emotion_after, market_condition
-         FROM trades WHERE ${filter.where}
-         ORDER BY trade_date ASC, id ASC
-         LIMIT 2000`,
+        /* Most recent 2000 matching trades, returned oldest-first. (Previously
+           the OLDEST 2000, which dropped current-week trades for large journals.) */
+        `SELECT * FROM (
+           SELECT id, symbol, profit_loss, trade_date, risk_percent,
+                  stop_loss, take_profit, confidence, mistakes, actual_r,
+                  emotion_before, emotion_after, market_condition
+           FROM trades WHERE ${filter.where}
+           ORDER BY trade_date DESC, id DESC
+           LIMIT 2000
+         ) recent
+         ORDER BY trade_date ASC, id ASC`,
         filter.params
       );
       const rows = rowR.rows.map((x) => ({
         id: x.id,
         symbol: x.symbol,
         pnl: Number(x.profit_loss || 0),
-        r: Number(x.actual_r || 0),
+        /* null = no R recorded; never coerced to 0R */
+        r: x.actual_r === null || x.actual_r === undefined ? null : Number(x.actual_r),
         risk: Number(x.risk_percent || 0),
         conf: Number(x.confidence || 0),
         trade_date: x.trade_date,
@@ -199,15 +219,27 @@ function createPremiumRouter({ db, auth, fields }) {
         return d >= prevStart && d < monday;
       });
       const stats = (a) => {
-        const pnl = a.reduce((z, x) => z + x.pnl, 0);
-        const wins = a.filter((x) => x.pnl > 0).length;
-        const losses = a.filter((x) => x.pnl < 0).length;
+        const g = summarizeTradeRows(a);
         return {
-          trades: a.length,
-          pnl,
-          winRate:
-            wins + losses ? (wins / (wins + losses)) * 100 : 0,
-          avgR: a.length ? a.reduce((z, x) => z + x.r, 0) / a.length : 0,
+          trades: g.trades,
+          pnl: a.reduce((z, x) => z + x.pnl, 0),
+          winRate: g.winRate,
+          avgR: g.avgR,
+        };
+      };
+
+      const groupRow = (a) => {
+        const g = summarizeTradeRows(a);
+        return {
+          trades: g.trades,
+          pnl: a.reduce((z, x) => z + x.pnl, 0),
+          wins: g.wins,
+          losses: g.losses,
+          breakeven: g.breakeven,
+          winRate: g.winRate,
+          profitFactor: g.profitFactor,
+          profitFactorInfinite: g.profitFactorInfinite,
+          avgR: g.avgR,
         };
       };
 
@@ -218,16 +250,9 @@ function createPremiumRouter({ db, auth, fields }) {
           if (!map.has(k)) map.set(k, []);
           map.get(k).push(x);
         }
-        return [...map].map(([name, a]) => ({
-          name,
-          trades: a.length,
-          pnl: a.reduce((z, x) => z + x.pnl, 0),
-          winRate: (() => {
-            const w = a.filter((x) => x.pnl > 0).length;
-            const l = a.filter((x) => x.pnl < 0).length;
-            return w + l ? (w / (w + l)) * 100 : 0;
-          })(),
-        })).sort((a, b) => b.trades - a.trades);
+        return [...map]
+          .map(([name, a]) => ({ name, ...groupRow(a) }))
+          .sort((a, b) => b.trades - a.trades);
       })();
 
       const confidence = [
@@ -237,18 +262,10 @@ function createPremiumRouter({ db, auth, fields }) {
         { label: "61-80", min: 61, max: 80 },
         { label: "81-100", min: 81, max: 100 },
       ]
-        .map((g) => {
-          const a = rows.filter((x) => x.conf >= g.min && x.conf <= g.max);
-          const w = a.filter((x) => x.pnl > 0).length;
-          const l = a.filter((x) => x.pnl < 0).length;
-          return {
-            ...g,
-            trades: a.length,
-            pnl: a.reduce((z, x) => z + x.pnl, 0),
-            winRate: w + l ? (w / (w + l)) * 100 : 0,
-            avgR: a.length ? a.reduce((z, x) => z + x.r, 0) / a.length : 0,
-          };
-        })
+        .map((g) => ({
+          ...g,
+          ...groupRow(rows.filter((x) => x.conf >= g.min && x.conf <= g.max)),
+        }))
         .filter((x) => x.trades);
 
       const markets = edge(
@@ -256,12 +273,10 @@ function createPremiumRouter({ db, auth, fields }) {
           const map = new Map();
           for (const x of rows) {
             const k = String(x.market_condition || "Unspecified");
-            if (!map.has(k)) map.set(k, { name: k, trades: 0, pnl: 0 });
-            const o = map.get(k);
-            o.trades++;
-            o.pnl += x.pnl;
+            if (!map.has(k)) map.set(k, []);
+            map.get(k).push(x);
           }
-          return [...map.values()];
+          return [...map].map(([name, a]) => ({ name, ...groupRow(a) }));
         })()
       );
 

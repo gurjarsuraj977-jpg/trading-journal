@@ -1,12 +1,18 @@
+/* Unavailable statistics (null / undefined / non-numeric) are shown as an
+   em dash — never as a fake 0 or a fake infinity. */
+const statAvail=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
 function insightRow(x){
+  const wr=statAvail(x.winRate)?`${Number(x.winRate).toFixed(1)}% win rate`:'win rate —';
+  const ar=statAvail(x.avgR)?`${Number(x.avgR).toFixed(2)}R avg`:'avg R —';
+  const pf=x.profitFactorInfinite?'∞':statAvail(x.profitFactor)?Number(x.profitFactor).toFixed(2):'—';
   return`
     <div class="insight-row">
       <div>
         <b>${E(x.name)}</b>
         <small>
           ${x.trades} trades ·
-          ${Number(x.winRate||0).toFixed(1)}% win rate ·
-          ${Number(x.avgR||0).toFixed(2)}R avg
+          ${wr} ·
+          ${ar}
         </small>
       </div>
 
@@ -15,11 +21,7 @@ function insightRow(x){
       </strong>
 
       <small>
-        PF ${
-          Number.isFinite(Number(x.profitFactor))?
-            Number(x.profitFactor).toFixed(2):
-            '∞'
-        }
+        PF ${pf}
       </small>
     </div>
   `;
@@ -28,9 +30,9 @@ function insightRow(x){
 /* ============================================================
    Behavior UI Batch 3B — legacy group rows (Historical P&L groups)
    Used only by #edgeList and #leakList. The Premium edge objects carry
-   real name / trades / pnl only; their winRate, avgR and profitFactor
-   are fixed placeholders in the API, so they are deliberately not
-   rendered here. insightRow() above is shared with the Psychology list
+   real name / trades / pnl and (since Phase 1) real winRate, avgR and
+   profitFactor from the metrics service; they are still deliberately not
+   rendered here (presentation unchanged). insightRow() above is shared with the Psychology list
    and is intentionally left unchanged.
    ============================================================ */
 function legacyGroupRow(x){
@@ -757,13 +759,13 @@ async function reports(){
     ),
     st(
       'This week win rate',
-      Number(w.current.winRate||0).toFixed(1)+'%'
+      statAvail(w.current.winRate)?Number(w.current.winRate).toFixed(1)+'%':'—'
     ),
     st(
       'Avg R',
-      Number(w.current.avgR||0).toFixed(2)+'R',
+      statAvail(w.current.avgR)?Number(w.current.avgR).toFixed(2)+'R':'—',
       '',
-      C(w.current.avgR)
+      statAvail(w.current.avgR)?C(w.current.avgR):''
     ),
     st(
       'Avg risk',
@@ -812,8 +814,8 @@ async function reports(){
         </strong>
         <small>
           ${w.current.trades||0} trades ·
-          ${Number(w.current.winRate||0).toFixed(1)}% win ·
-          ${Number(w.current.avgR||0).toFixed(2)}R avg
+          ${statAvail(w.current.winRate)?Number(w.current.winRate).toFixed(1)+'%':'—'} win ·
+          ${statAvail(w.current.avgR)?Number(w.current.avgR).toFixed(2)+'R':'—'} avg
         </small>
       </div>
 
@@ -824,8 +826,8 @@ async function reports(){
         </strong>
         <small>
           ${w.previous.trades||0} trades ·
-          ${Number(w.previous.winRate||0).toFixed(1)}% win ·
-          ${Number(w.previous.avgR||0).toFixed(2)}R avg
+          ${statAvail(w.previous.winRate)?Number(w.previous.winRate).toFixed(1)+'%':'—'} win ·
+          ${statAvail(w.previous.avgR)?Number(w.previous.avgR).toFixed(2)+'R':'—'} avg
         </small>
       </div>
     </div>`;

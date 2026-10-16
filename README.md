@@ -69,3 +69,9 @@ POST   /api/admin/users/:id/role
 DELETE /api/admin/users/:id
 GET    /api/admin/audit-log
 ```
+
+## Tests (Phase 1)
+`npm test` runs every `tests/*.test.js`. Database integration tests need a disposable local database:
+`TEST_DATABASE_URL=postgres://user:pass@localhost:5432/ghosttrader_test npm test`
+(name must contain "test"; each run creates and drops its own database; without the variable those files report SKIP).
+See `docs/PHASE1_REPORT.md` for the Phase 1 change log, database safety report and deployment steps.
